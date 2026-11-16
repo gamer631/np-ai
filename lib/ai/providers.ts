@@ -25,10 +25,9 @@ async function readJson(response: Response): Promise<Record<string, unknown>> {
   }
 }
 
-function providerError(data: Record<string, unknown>, fallback: string): Error {
-  // Provider error bodies are deliberately not returned to clients or logged:
-  // they can contain request details and should not become an information leak.
-  return new Error(fallback);
+function providerError(): Error {
+  // Do not expose provider error bodies: they may include request details.
+  return new Error("AI provider request failed.");
 }
 
 function nonEmptyText(value: unknown): string | null {
@@ -59,7 +58,7 @@ export async function generateReply(
       body: JSON.stringify({ model, messages: conversation, temperature: 0.7 }),
     });
     const data = await readJson(response);
-    if (!response.ok) throw providerError(data, "OpenAI request failed.");
+    if (!response.ok) throw providerError();
     const choices = Array.isArray(data.choices) ? data.choices : [];
     const first = choices[0] && typeof choices[0] === "object"
       ? (choices[0] as Record<string, unknown>)
@@ -80,14 +79,10 @@ export async function generateReply(
         "anthropic-version": "2023-06-01",
         "content-type": "application/json",
       },
-      body: JSON.stringify({
-        model,
-        max_tokens: 2048,
-        messages: conversation,
-      }),
+      body: JSON.stringify({ model, max_tokens: 2048, messages: conversation }),
     });
     const data = await readJson(response);
-    if (!response.ok) throw providerError(data, "Anthropic request failed.");
+    if (!response.ok) throw providerError();
     const content = Array.isArray(data.content) ? data.content : [];
     const text = content
       .filter((part): part is Record<string, unknown> =>
@@ -117,7 +112,7 @@ export async function generateReply(
     },
   );
   const data = await readJson(response);
-  if (!response.ok) throw providerError(data, "Google AI request failed.");
+  if (!response.ok) throw providerError();
   const candidates = Array.isArray(data.candidates) ? data.candidates : [];
   const candidate = candidates[0] && typeof candidates[0] === "object"
     ? (candidates[0] as Record<string, unknown>)
