@@ -20,20 +20,49 @@ function badRequest(error: string, status = 400) {
   return NextResponse.json({ error }, { status });
 }
 
+async function readLimitedBody(request: Request): Promise<string | null> {
+  if (!request.body) return "";
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      totalBytes += value.byteLength;
+      if (totalBytes > MAX_BODY_BYTES) {
+        await reader.cancel();
+        return null;
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  const body = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder().decode(body);
+}
+
 export async function POST(request: Request) {
   const declaredLength = Number(request.headers.get("content-length") || 0);
   if (declaredLength > MAX_BODY_BYTES) {
     return badRequest("Request body is too large.", 413);
   }
 
-  let rawBody: string;
+  let rawBody: string | null;
   try {
-    rawBody = await request.text();
+    rawBody = await readLimitedBody(request);
   } catch {
     return badRequest("Unable to read request body.", 400);
   }
-
-  if (new TextEncoder().encode(rawBody).byteLength > MAX_BODY_BYTES) {
+  if (rawBody === null) {
     return badRequest("Request body is too large.", 413);
   }
 
@@ -61,10 +90,7 @@ export async function POST(request: Request) {
   }
 
   const selectedProvider = provider as Provider;
-  if (
-    typeof model !== "string" ||
-    !allowedModels[selectedProvider].includes(model)
-  ) {
+  if (typeof model !== "string" || !allowedModels[selectedProvider].includes(model)) {
     return badRequest("The selected model is not allowed for this provider.");
   }
 
@@ -103,11 +129,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ reply });
   } catch (error) {
     if (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")) {
-      return NextResponse.json({ error: "The AI provider took too long to respond. Please try again." }, { status: 504 });
+      return NextResponse.json(
+        { error: "The AI provider took too long to respond. Please try again." },
+        { status: 504 },
+      );
     }
     return NextResponse.json(
       { error: "The AI provider could not complete your request. Please try again." },
-      { status: 502 }
+      { status: 502 },
     );
   }
 }
