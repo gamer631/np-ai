@@ -101,10 +101,13 @@ export async function generateReply(
     parts: [{ text: message.content }],
   }));
   const response = await providerFetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": key,
+      },
       body: JSON.stringify({
         contents,
         generationConfig: { temperature: 0.7, maxOutputTokens: 2048 },
