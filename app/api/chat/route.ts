@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { generateReply, hasProviderKey, type Provider } from "@/lib/ai/providers";
+import { checkChatRateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -51,6 +52,31 @@ async function readLimitedBody(request: Request): Promise<string | null> {
 }
 
 export async function POST(request: Request) {
+  let rateLimit;
+  try {
+    rateLimit = await checkChatRateLimit(request);
+  } catch {
+    // Fail closed if a configured limiter is unavailable or misconfigured.
+    return badRequest("Usage protection is temporarily unavailable. Please try again later.", 503);
+  }
+
+  if (!rateLimit.allowed) {
+    if (rateLimit.status === 429) {
+      return NextResponse.json(
+        { error: "You've reached the chat usage limit. Please wait before trying again." },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(rateLimit.retryAfter),
+            "X-RateLimit-Limit": String(rateLimit.limit),
+            "X-RateLimit-Remaining": String(rateLimit.remaining),
+          },
+        },
+      );
+    }
+    return badRequest("Chat is temporarily unavailable because usage protection is not configured.", 503);
+  }
+
   const declaredLength = Number(request.headers.get("content-length") || 0);
   if (declaredLength > MAX_BODY_BYTES) {
     return badRequest("Request body is too large.", 413);
@@ -126,7 +152,15 @@ export async function POST(request: Request) {
 
   try {
     const reply = await generateReply(selectedProvider, model, validatedMessages);
-    return NextResponse.json({ reply });
+    return NextResponse.json(
+      { reply },
+      {
+        headers: {
+          "X-RateLimit-Limit": String(rateLimit.limit),
+          "X-RateLimit-Remaining": String(rateLimit.remaining),
+        },
+      },
+    );
   } catch (error) {
     if (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")) {
       return NextResponse.json(
