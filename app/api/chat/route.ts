@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { generateReply, hasProviderKey, type Provider } from "@/lib/ai/providers";
-import { checkChatRateLimit } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -111,23 +110,6 @@ export async function POST(request: Request) {
     return badRequest("A new user message is required.");
   }
   if (!hasProviderKey(selectedProvider)) return badRequest("The selected AI provider is not configured on this server.", 503);
-
-  // Keep the IP-level abuse guard in addition to account-level quotas.
-  try {
-    const ipLimit = await checkChatRateLimit(request);
-    if (!ipLimit.allowed) {
-      if (ipLimit.status === 429) {
-        return badRequest("This network has reached its temporary chat limit. Please wait before trying again.", 429, {
-          "Retry-After": String(ipLimit.retryAfter),
-          "X-RateLimit-Limit": String(ipLimit.limit),
-          "X-RateLimit-Remaining": String(ipLimit.remaining),
-        });
-      }
-      return badRequest("Usage protection is temporarily unavailable.", 503);
-    }
-  } catch {
-    return badRequest("Usage protection is temporarily unavailable.", 503);
-  }
 
   const { data: quotaRows, error: quotaError } = await supabase.rpc("consume_chat_quota");
   if (quotaError) return badRequest("Account usage protection is unavailable. Apply the NP.ai Supabase migration and try again.", 503);
