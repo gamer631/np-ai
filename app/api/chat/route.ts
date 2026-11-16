@@ -52,7 +52,7 @@ async function readLimitedBody(request: Request): Promise<string | null> {
 }
 
 export async function POST(request: Request) {
-  let rateLimit;
+  let rateLimit: Awaited<ReturnType<typeof checkChatRateLimit>>;
   try {
     rateLimit = await checkChatRateLimit(request);
   } catch {
