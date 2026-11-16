@@ -1,84 +1,95 @@
 # NP.ai
 
-**Think beyond.** NP.ai is an open-source, multi-provider AI chat workspace.
+**Think beyond.** NP.ai is a Nepal-first multi-provider AI workspace.
 
-> This project is an AI application, not a foundation model. It connects to model providers using API keys supplied by the person running the app.
+NP.ai is an application, not a foundation model. It securely calls AI providers using server-side API keys supplied by the operator. Supabase provides authentication, PostgreSQL storage, row-level security, and per-account usage quotas.
 
-## Features
+## Current capabilities
 
-- Clean, responsive chat interface
-- Choose between OpenAI, Anthropic Claude, and Google Gemini
-- Provider calls run on the server; API keys are never sent to the browser
-- Simple provider adapter that can be extended with more models
+- Responsive multi-model chat interface (OpenAI, Anthropic, Google)
+- Supabase email/password sign-up, sign-in, email confirmation callback, and sign-out
+- Cookie-based SSR sessions using `@supabase/ssr`
+- Authenticated chat API; unauthenticated requests are rejected
+- Per-account quotas enforced atomically in PostgreSQL: 10 chats per 10 minutes and 100 per 24 hours
+- Conversation and message persistence with user ownership enforced by Row Level Security
+- Conversation history endpoints and a basic history panel
+- Provider keys stay server-side
 
-## Requirements
+## Stack
 
-- Node.js 20.9 or newer
-- An API key from at least one supported provider
+- Next.js 15 App Router, React 19, TypeScript
+- Supabase Auth + PostgreSQL + RLS
+- `@supabase/ssr` and `@supabase/supabase-js`
+
+## Create and connect Supabase
+
+1. Create a Supabase project in your own account at https://supabase.com/dashboard.
+2. Select a region close to Nepal (Singapore if available).
+3. In the project SQL Editor, run the complete migration at `supabase/migrations/202611160001_initial_schema.sql`.
+4. In Project Settings -> API, copy the Project URL and publishable key.
+5. In local `.env.local`, set:
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+6. In Supabase Authentication -> URL Configuration, set the Site URL to your deployed app URL (or `http://localhost:3000` for local development) and add the redirect URL `http://localhost:3000/auth/callback` plus your production `https://YOUR_DOMAIN/auth/callback`.
+7. Enable email/password authentication. Configure SMTP before inviting real users; the built-in email sender is intended for limited testing.
+
+**Never put a Supabase secret/service-role key in browser variables, GitHub commits, or chat.** This app uses the publishable key with user sessions and RLS. The database password is not needed by the application.
 
 ## Run locally
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/gamer631/np-ai.git
-   cd np-ai
-   ```
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Create your local environment file:
-   ```bash
-   cp .env.example .env.local
-   ```
-4. Add at least one provider key to `.env.local`.
-5. Start the development server:
-   ```bash
-   npm run dev
-   ```
-6. Open http://localhost:3000.
+Requirements: Node.js 20.9 or newer.
 
-## Provider keys
+```bash
+git clone https://github.com/gamer631/np-ai.git
+cd np-ai
+npm install
+cp .env.example .env.local
+# Fill in Supabase URL, publishable key, and at least one AI provider key.
+npm run dev
+```
+
+Open http://localhost:3000 and create an account at /auth.
+
+## AI provider keys
+
+Add at least one key to the server environment:
 
 - OpenAI: https://platform.openai.com/api-keys
 - Anthropic: https://console.anthropic.com/settings/keys
 - Google AI Studio: https://aistudio.google.com/app/apikey
 
-Only configure the providers you intend to use. API usage may incur charges according to each provider's pricing. Never commit `.env.local` or publish API keys.
+Provider usage may incur charges. Never commit `.env.local` or expose provider keys to the browser.
 
-## Supported model defaults
+## Database and security
 
-| Provider | Model |
-| --- | --- |
-| OpenAI | `gpt-4o-mini` |
-| Anthropic | `claude-sonnet-4-20250514` |
-| Google | `gemini-2.5-flash` |
+The SQL migration creates:
 
-Model availability and pricing can change. Update the model IDs in `app/page.tsx` when you want to use different models.
+- `profiles` — one profile per Supabase Auth user
+- `conversations` — user-owned conversation metadata
+- `messages` — user-owned conversation messages
+- `chat_usage_events` — private quota event ledger
 
-## Project structure
+RLS is enabled on every application table. The quota function uses a per-user PostgreSQL advisory transaction lock so concurrent requests cannot race past the quota. It is callable only by authenticated users and derives the user ID from `auth.uid()`.
 
-```
-app/
-  api/chat/route.ts    Server-side chat endpoint
-  globals.css          Application styles
-  layout.tsx           Root layout and metadata
-  page.tsx             Chat interface
-lib/ai/providers.ts    Provider integrations
-```
+The chat endpoint also validates request sizes, model/provider pairing, message roles, and server provider configuration. Provider calls have a timeout and normalized errors.
+
+## Important limitations
+
+- Supabase project creation, database migration execution, Auth URL configuration, provider keys, and deployment secrets must be completed in the owner's accounts.
+- The current quotas count chat requests, including requests where a provider later fails; this avoids free retries bypassing usage accounting.
+- Account creation abuse protection, billing, payment collection, streaming, attachments, admin tools, and comprehensive automated tests are not yet implemented.
+- This repository has not yet been verified with a live Supabase project or production provider credentials. Do not treat it as production-ready until the CI checks, migration, auth flow, quota behavior, and staging deployment are tested.
 
 ## Roadmap
 
-- [ ] Streaming responses
-- [ ] Conversation history and user accounts
-- [ ] File and document uploads
-- [ ] Usage limits and cost controls
-- [ ] Additional model providers
-- [ ] Automated tests and deployment workflow
-
-## Contributing
-
-Issues and pull requests are welcome. Please never include credentials, private user data, or API keys in issues or commits.
+- [x] Supabase Auth integration
+- [x] User profiles and RLS-protected conversations
+- [x] Per-account atomic chat quotas
+- [ ] Live Supabase migration and authentication verification
+- [ ] Automated unit, integration, and end-to-end tests
+- [ ] Streaming responses and file uploads
+- [ ] Billing, plan management, and operational monitoring
+- [ ] Production deployment and security review
 
 ## License
 
