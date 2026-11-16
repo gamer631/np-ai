@@ -1,6 +1,6 @@
 # NP.ai
 
-**Think beyond.** NP.ai is an open-source, multi-provider AI chat workspace.
+**Think beyond.** NP.ai is an open-source, Nepal-first multi-provider AI chat workspace.
 
 > This project is an AI application, not a foundation model. It connects to model providers using API keys supplied by the person running the app.
 
@@ -9,12 +9,15 @@
 - Clean, responsive chat interface
 - Choose between OpenAI, Anthropic Claude, and Google Gemini
 - Provider calls run on the server; API keys are never sent to the browser
-- Simple provider adapter that can be extended with more models
+- Server-side request validation, body-size limits, and provider timeouts
+- Optional local-development rate-limit bypass; production requires durable Upstash-backed limits
+- Provider credentials are sent in authorization headers, not query strings
 
 ## Requirements
 
 - Node.js 20.9 or newer
 - An API key from at least one supported provider
+- An Upstash Redis database for production chat usage limits
 
 ## Run locally
 
@@ -38,6 +41,27 @@
    ```
 6. Open http://localhost:3000.
 
+In development, requests are allowed when Upstash is not configured. Configure the Upstash variables locally to exercise real quotas. In production, the chat endpoint fails closed unless the limiter is configured and reachable.
+
+## Production usage limits
+
+Create an Upstash Redis database and set these server-only environment variables:
+
+- `UPSTASH_REDIS_REST_URL`
+- `UPSTASH_REDIS_REST_TOKEN`
+- `RATE_LIMIT_SALT` — a unique random secret of at least 32 bytes; generate with `openssl rand -hex 32`
+
+The chat endpoint applies these per-client-IP limits:
+
+- 10 requests per 10 minutes
+- 100 requests per 24 hours
+
+Counters are incremented atomically in Redis. Client IPs are HMAC-hashed before being used in Redis keys; raw IP addresses are not stored in the keys. The limiter trusts the ingress headers `cf-connecting-ip`, `x-real-ip`, or the first value in `x-forwarded-for`. Deploy behind a trusted proxy that overwrites these headers; do not expose the app directly to untrusted traffic with spoofable forwarding headers.
+
+These are anonymous IP-based abuse controls, not per-account billing quotas. Shared networks may share a limit, and users can potentially change IPs. Per-user quotas require authenticated accounts and a persistent user identity.
+
+If the Redis service is unavailable or misconfigured, chat requests return 503 rather than bypassing production limits. A rate-limited request returns 429 and a `Retry-After` header.
+
 ## Provider keys
 
 - OpenAI: https://platform.openai.com/api-keys
@@ -54,7 +78,7 @@ Only configure the providers you intend to use. API usage may incur charges acco
 | Anthropic | `claude-sonnet-4-20250514` |
 | Google | `gemini-2.5-flash` |
 
-Model availability and pricing can change. Update the model IDs in `app/page.tsx` when you want to use different models.
+Model availability and pricing can change. Update the model IDs in `app/page.tsx` and the server allowlist in `app/api/chat/route.ts` together.
 
 ## Project structure
 
@@ -64,17 +88,20 @@ app/
   globals.css          Application styles
   layout.tsx           Root layout and metadata
   page.tsx             Chat interface
-lib/ai/providers.ts    Provider integrations
+lib/
+  ai/providers.ts      Provider integrations
+  rate-limit.ts        Durable Redis-backed request limits
 ```
 
 ## Roadmap
 
+- [ ] Hosted user authentication and account sessions
+- [ ] Per-user daily/monthly quotas and billing controls
 - [ ] Streaming responses
 - [ ] Conversation history and user accounts
 - [ ] File and document uploads
-- [ ] Usage limits and cost controls
-- [ ] Additional model providers
 - [ ] Automated tests and deployment workflow
+- [ ] Additional model providers
 
 ## Contributing
 
