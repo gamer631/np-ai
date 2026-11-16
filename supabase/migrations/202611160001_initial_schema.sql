@@ -27,7 +27,7 @@ create table if not exists public.messages (
   conversation_id uuid not null references public.conversations(id) on delete cascade,
   user_id uuid not null references auth.users(id) on delete cascade,
   role text not null check (role in ('user', 'assistant')),
-  content text not null check (char_length(content) between 1 and 12000),
+  content text not null check (char_length(content) between 1 and 50000),
   created_at timestamptz not null default now()
 );
 
@@ -111,6 +111,9 @@ begin
   end if;
 
   perform pg_advisory_xact_lock(hashtextextended(current_user_id::text, 0));
+
+  delete from public.chat_usage_events
+    where user_id = current_user_id and created_at <= now() - interval '24 hours';
 
   select count(*)::integer, min(created_at)
     into short_count, oldest_short
