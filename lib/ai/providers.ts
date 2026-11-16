@@ -35,7 +35,6 @@ export async function generateReply(
   if (provider === "anthropic") {
     const key = process.env.ANTHROPIC_API_KEY;
     if (!key) throw new Error("Anthropic API key is not configured.");
-    const system = conversation.filter(m => m.role === "assistant" ? false : false);
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
