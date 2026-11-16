@@ -14,9 +14,12 @@ const RATE_LIMIT_SCRIPT = [
   "local shortTtl = redis.call('TTL', KEYS[1])",
   "local dailyTtl = redis.call('TTL', KEYS[2])",
   "if shortCount > tonumber(ARGV[1]) or dailyCount > tonumber(ARGV[3]) then",
-  "  return {0, math.max(shortTtl, dailyTtl), shortCount, dailyCount}",
+  "  local retryAfter = 0",
+  "  if shortCount > tonumber(ARGV[1]) then retryAfter = math.max(retryAfter, shortTtl) end",
+  "  if dailyCount > tonumber(ARGV[3]) then retryAfter = math.max(retryAfter, dailyTtl) end",
+  "  return {0, retryAfter, shortCount, dailyCount}",
   "end",
-  "return {1, math.max(shortTtl, dailyTtl), shortCount, dailyCount}",
+  "return {1, 0, shortCount, dailyCount}",
 ].join("\n");
 
 export type ChatRateLimitResult =
@@ -48,6 +51,10 @@ export async function checkChatRateLimit(request: Request): Promise<ChatRateLimi
       return { allowed: false, status: 503, retryAfter: 60, limit, remaining: 0 };
     }
     return { allowed: true, configured: false, limit, remaining: limit };
+  }
+
+  if (salt.length < 32) {
+    throw new Error("Rate-limit salt must contain at least 32 characters.");
   }
 
   let parsedUrl: URL;
