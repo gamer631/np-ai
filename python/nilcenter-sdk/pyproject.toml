@@ -15,6 +15,9 @@ dependencies = []
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "mypy>=1.10", "ruff>=0.6"]
 
+[project.scripts]
+nilcenter = "nilcenter.cli:main"
+
 [tool.setuptools.packages.find]
 where = ["src"]
 

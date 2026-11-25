@@ -1,6 +1,6 @@
 # NILcenter Python SDK
 
-The first SDK milestone provides a typed, offline-first laboratory catalog and metadata-only tool registry.
+The first SDK milestone provides a typed, offline-first laboratory catalog, metadata-only tool registry, CLI and tool-manifest validation.
 
 ## Install for development
 
@@ -14,7 +14,7 @@ python -m pip install -e ".[dev]"
 pytest
 ```
 
-## Example
+## Python API
 
 ```python
 from nilcenter import NIL
@@ -29,6 +29,15 @@ for lab in nil.labs.search("security"):
 
 cyber_lab = nil.lab("cybersecurity")
 print(cyber_lab.name)
+```
+
+## CLI
+
+```bash
+nilcenter labs list
+nilcenter labs search security
+nilcenter tools list
+nilcenter tools validate ./tool-manifest.json
 ```
 
 ## Current limitations
