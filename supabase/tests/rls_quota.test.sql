@@ -38,6 +38,7 @@ select throws_ok(
   $$insert into public.conversations (user_id, title, provider, model)
     values ('22222222-2222-4222-8222-222222222222', 'forbidden', 'openai', 'gpt-4o-mini')$$,
   '42501',
+  'new row violates row-level security policy for table "conversations"',
   'User A cannot create a conversation owned by User B'
 );
 
@@ -45,25 +46,32 @@ select throws_ok(
   $$insert into public.messages (conversation_id, user_id, role, content)
     values ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', '11111111-1111-4111-8111-111111111111', 'user', 'cross-account write')$$,
   '42501',
+  'new row violates row-level security policy for table "messages"',
   'User A cannot write a message into User B conversation'
 );
 
 select throws_ok(
   $$select * from public.chat_usage_events$$,
   '42501',
+  'permission denied for table chat_usage_events',
   'Authenticated users cannot read the private quota ledger'
 );
 
-select is(
-  (
-    select count(*)::integer
-    from generate_series(1, 10) as request_number
-    cross join lateral public.consume_chat_quota() as quota
-    where quota.allowed
-  ),
-  10,
-  'The first ten quota requests are allowed'
-);
+do $
+declare
+  request_number integer;
+  quota_result record;
+  allowed_count integer := 0;
+begin
+  for request_number in 1..10 loop
+    select * into quota_result from public.consume_chat_quota();
+    if quota_result.allowed then
+      allowed_count := allowed_count + 1;
+    end if;
+  end loop;
+  perform is(allowed_count, 10, 'The first ten quota requests are allowed');
+end;
+$;
 
 select is(
   (select allowed from public.consume_chat_quota()),
