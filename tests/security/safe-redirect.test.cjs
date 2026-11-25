@@ -1,5 +1,7 @@
 "use strict";
 
+/* eslint-disable @typescript-eslint/no-require-imports -- Node.js test runner uses CommonJS. */
+
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { safeInternalPath } = require("../../lib/security/safe-redirect.cjs");
