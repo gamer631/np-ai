@@ -1,6 +1,8 @@
 # NILcenter Python SDK
 
-The first SDK milestone provides a typed, offline-first laboratory catalog, metadata-only tool registry, CLI and tool-manifest validation.
+The Python SDK provides an offline-first laboratory catalog, metadata-only tool
+registry, strict tool-manifest validation, local experiment metadata storage,
+and an application-level capability-grant primitive.
 
 ## Install for development
 
@@ -12,12 +14,15 @@ python -m venv .venv
 .venv\Scripts\Activate.ps1
 python -m pip install -e ".[dev]"
 pytest
+ruff check src tests
 ```
 
 ## Python API
 
 ```python
-from nilcenter import NIL
+from pathlib import Path
+
+from nilcenter import NIL, ExperimentStore
 
 nil = NIL()
 
@@ -27,9 +32,22 @@ for lab in nil.labs.list():
 for lab in nil.labs.search("security"):
     print(lab.summary)
 
-cyber_lab = nil.lab("cybersecurity")
-print(cyber_lab.name)
+math_lab = nil.lab("scientific-computing")
+store = ExperimentStore(Path.home() / ".local/share/nilcenter/experiments.json")
+experiment = store.create(
+    "Numerical integration baseline",
+    math_lab.id,
+    hypothesis="Compare numerical integration methods",
+    tags=("numerics", "baseline"),
+    metadata={"seed": 42},
+)
+print(experiment.id, experiment.status)
 ```
+
+The capability policy primitive is deny-by-default and requires explicit
+approval, exact subject/capability/resource scope, a bounded expiry and
+revocation. It is not an OS security boundary and does not make code execution
+safe.
 
 ## CLI
 
@@ -38,14 +56,23 @@ nilcenter labs list
 nilcenter labs search security
 nilcenter tools list
 nilcenter tools validate ./tool-manifest.json
+nilcenter experiments create scientific-computing "Integration baseline" --hypothesis "Compare methods"
+nilcenter experiments list
 ```
+
+The experiment CLI stores metadata by default in
+`~/.local/share/nilcenter/experiments.json`. Use the `--store` option to
+select a different local path.
 
 ## Current limitations
 
-- No tool installation or execution.
+- No tool installation or arbitrary tool execution.
 - No plugin auto-loading.
 - No privileged operations.
-- No network access required for catalog discovery.
-- Tool descriptors are registered by the host application in this initial version.
+- No Linux permission enforcement or production sandbox.
+- The experiment JSON store is a single-user prototype, not a multi-process
+  database or encrypted research vault.
+- No production desktop shell or bootable OS image is included in this SDK.
 
-These restrictions are intentional. Safe isolated execution will be implemented only after the broker, sandbox and audit contracts are ready.
+These restrictions are intentional. Untrusted execution requires a separately
+reviewed OS broker, disposable sandbox, resource limits and audit implementation.
