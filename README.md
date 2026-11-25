@@ -1,84 +1,60 @@
-# NP.ai
+# Nepal Innovation Labs — NIL.ai
 
-**Think beyond.** NP.ai is an open-source, multi-provider AI chat workspace.
+**Born in Nepal. Built for the world.**
 
-> This project is an AI application, not a foundation model. It connects to model providers using API keys supplied by the person running the app.
+Nepal Innovation Labs is an independent research and engineering initiative focused on useful, reliable artificial intelligence. NIL.ai is the company identity and public research-laboratory brand. NP.ai is its open-source multi-provider AI workspace.
 
-## Features
+## Ecosystem
 
-- Clean, responsive chat interface
-- Choose between OpenAI, Anthropic Claude, and Google Gemini
-- Provider calls run on the server; API keys are never sent to the browser
-- Simple provider adapter that can be extended with more models
+- **NIL.ai website:** company identity, research directions, principles and project information — see [website/](./website/).
+- **NP.ai:** multi-provider AI workspace using OpenAI, Anthropic and Google APIs — see the root application and [GitHub project](https://github.com/gamer631/np-ai).
 
-## Requirements
+## Repository layout
 
-- Node.js 20.9 or newer
-- An API key from at least one supported provider
+- `website/` — standalone Next.js company website for NIL.ai.
+- `app/`, `lib/`, `supabase/` — NP.ai product application, provider adapters and database migration.
+- `.github/workflows/` — independent CI pipelines for product, website and local database tests.
 
-## Run locally
+## Engineering principles
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/gamer631/np-ai.git
-   cd np-ai
-   ```
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Create your local environment file:
-   ```bash
-   cp .env.example .env.local
-   ```
-4. Add at least one provider key to `.env.local`.
-5. Start the development server:
-   ```bash
-   npm run dev
-   ```
-6. Open http://localhost:3000.
+- Evidence before claims: CI, integration and production checks are recorded separately.
+- Privacy by design: provider secrets stay server-side; Supabase row-level security protects user data.
+- Secure defaults: bounded inputs, per-account usage controls, normalized provider errors and security headers.
+- Reproducible builds: committed npm lockfiles and `npm ci` in CI.
+- No invented proof: mock-provider tests are not live-provider verification; local database tests are not hosted-project verification.
 
-## Provider keys
+## Development
 
-- OpenAI: https://platform.openai.com/api-keys
-- Anthropic: https://console.anthropic.com/settings/keys
-- Google AI Studio: https://aistudio.google.com/app/apikey
+For the NIL.ai website:
 
-Only configure the providers you intend to use. API usage may incur charges according to each provider's pricing. Never commit `.env.local` or publish API keys.
-
-## Supported model defaults
-
-| Provider | Model |
-| --- | --- |
-| OpenAI | `gpt-4o-mini` |
-| Anthropic | `claude-sonnet-4-20250514` |
-| Google | `gemini-2.5-flash` |
-
-Model availability and pricing can change. Update the model IDs in `app/page.tsx` when you want to use different models.
-
-## Project structure
-
-```
-app/
-  api/chat/route.ts    Server-side chat endpoint
-  globals.css          Application styles
-  layout.tsx           Root layout and metadata
-  page.tsx             Chat interface
-lib/ai/providers.ts    Provider integrations
+```bash
+cd website
+npm ci
+npm run dev
 ```
 
-## Roadmap
+For NP.ai:
 
-- [ ] Streaming responses
-- [ ] Conversation history and user accounts
-- [ ] File and document uploads
-- [ ] Usage limits and cost controls
-- [ ] Additional model providers
-- [ ] Automated tests and deployment workflow
+```bash
+npm ci
+cp .env.example .env.local
+# Configure Supabase URL/publishable key and at least one server-side provider key.
+npm run dev
+```
 
-## Contributing
+For local Supabase database tests, install Docker and the Supabase CLI, then run:
 
-Issues and pull requests are welcome. Please never include credentials, private user data, or API keys in issues or commits.
+```bash
+supabase start
+supabase db reset
+supabase test db
+```
+
+See [website README](./website/README.md) for website setup and the product README on the backend branch for detailed NP.ai configuration.
+
+## Status
+
+This repository contains active development work. Do not infer production readiness from a successful build. Hosted Supabase, email delivery, provider credentials, staging deployment, accessibility review, monitoring, privacy/legal review and production domain configuration must be verified in the owner's accounts before public launch.
 
 ## License
 
