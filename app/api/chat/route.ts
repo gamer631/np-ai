@@ -161,6 +161,7 @@ export async function POST(request: Request) {
     const responseBody = new ReadableStream<Uint8Array>({
       async start(controller) {
         const send = (event: string, payload: Record<string, unknown>) => {
+          if (abortController.signal.aborted) return;
           controller.enqueue(encoder.encode(`event: ${event}\\ndata: ${JSON.stringify(payload)}\\n\\n`));
         };
         let reply = "";
@@ -196,7 +197,7 @@ export async function POST(request: Request) {
             send("error", { error: "The AI provider could not complete your request. Please try again." });
           }
         } finally {
-          controller.close();
+          try { controller.close(); } catch { /* The client may have cancelled the stream. */ }
         }
       },
       cancel() {
