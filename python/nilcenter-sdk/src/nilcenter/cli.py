@@ -48,6 +48,9 @@ def _build_parser() -> argparse.ArgumentParser:
     create.add_argument("--hypothesis", default="")
     create.add_argument("--tag", action="append", default=[])
     experiment_commands.add_parser("list", help="List saved experiments")
+    status = experiment_commands.add_parser("status", help="Update an experiment lifecycle status")
+    status.add_argument("experiment_id")
+    status.add_argument("value", choices=("draft", "planned", "running", "succeeded", "failed", "cancelled"))
     return parser
 
 
@@ -107,6 +110,14 @@ def main(argv: Sequence[str] | None = None) -> int:
                     f"{experiment.id}  {experiment.laboratory:20} "
                     f"{experiment.status:10} {experiment.name}"
                 )
+            return 0
+        if args.experiment_command == "status":
+            try:
+                experiment = store.set_status(args.experiment_id, args.value)
+            except (KeyError, OSError, ValueError) as exc:
+                print(f"Experiment status update failed: {exc}", file=sys.stderr)
+                return 2
+            print(f"Updated {experiment.id}: {experiment.status}")
             return 0
 
     parser.error("Unsupported command")
