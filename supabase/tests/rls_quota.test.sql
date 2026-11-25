@@ -1,6 +1,6 @@
 begin;
 
-select plan(9);
+select plan(7);
 
 -- Isolated fixture users; the auth trigger also exercises profile creation.
 insert into auth.users (
