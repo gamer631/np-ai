@@ -109,6 +109,13 @@ export async function POST(request: Request) {
   if (!latestUserMessage || validatedMessages[validatedMessages.length - 1].role !== "user") {
     return badRequest("A new user message is required.");
   }
+
+  // Validate conversation ownership before consuming quota or calling a paid provider.
+  if (conversationId) {
+    const { data: ownedConversation, error: ownershipError } = await supabase.from("conversations")
+      .select("id").eq("id", conversationId as string).eq("user_id", user.id).maybeSingle();
+    if (ownershipError || !ownedConversation) return badRequest("Conversation not found.", 404);
+  }
   if (!hasProviderKey(selectedProvider)) return badRequest("The selected AI provider is not configured on this server.", 503);
 
   const { data: quotaRows, error: quotaError } = await supabase.rpc("consume_chat_quota");
@@ -133,9 +140,6 @@ export async function POST(request: Request) {
 
   let savedConversationId = conversationId as string | undefined;
   if (savedConversationId) {
-    const { data: existing, error } = await supabase.from("conversations")
-      .select("id").eq("id", savedConversationId).eq("user_id", user.id).maybeSingle();
-    if (error || !existing) return badRequest("Conversation not found.", 404);
     const { error: updateError } = await supabase.from("conversations")
       .update({ provider: selectedProvider, model, updated_at: new Date().toISOString() })
       .eq("id", savedConversationId).eq("user_id", user.id);
