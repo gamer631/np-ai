@@ -42,6 +42,7 @@ export default function HomePage() {
           <a href="#research">Research</a>
           <a href="#products">Products</a>
           <a href="#principles">Principles</a>
+          <a href="#contact">Contact</a>
         </nav>
         <a className="header-cta" href="https://github.com/gamer631/np-ai">
           Explore GitHub <span aria-hidden="true">↗</span>
@@ -143,6 +144,20 @@ export default function HomePage() {
           {principles.map(([title, description], index) => (
             <article key={title}><span>0{index + 1}</span><div><h3>{title}</h3><p>{description}</p></div></article>
           ))}
+        </div>
+      </section>
+
+      <section className="section contact" id="contact">
+        <div className="section-label"><span>05</span> / GET IN TOUCH</div>
+        <div>
+          <p className="kicker">RESEARCH · ENGINEERING · COLLABORATION</p>
+          <h2>Have a meaningful<br /><em>problem to solve?</em></h2>
+          <p className="section-copy">
+            For research, engineering and project inquiries, reach the team
+            through the public project space. Please do not post credentials,
+            private documents or personal information.
+          </p>
+          <a className="button button-primary" href="https://github.com/gamer631/np-ai/issues">Contact NIL.ai on GitHub <span aria-hidden="true">↗</span></a>
         </div>
       </section>
 
