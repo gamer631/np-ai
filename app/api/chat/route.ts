@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { generateReply, hasProviderKey, type Provider } from "@/lib/ai/providers";
+import { generateReply, hasProviderKey, streamReply, type Provider } from "@/lib/ai/providers";
 import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -125,6 +125,92 @@ export async function POST(request: Request) {
     return badRequest("You've reached your account chat limit. Please wait before trying again.", 429, {
       "Retry-After": String(Math.max(1, Number(quota?.retry_after_seconds) || 60)),
       "X-Account-RateLimit-Remaining": String(Math.max(0, Number(quota?.short_remaining) || 0)),
+    });
+  }
+
+  if (input.stream === true) {
+    let savedConversationId = conversationId as string | undefined;
+
+    if (savedConversationId) {
+      const { error: updateError } = await supabase.from("conversations")
+        .update({ provider: selectedProvider, model, updated_at: new Date().toISOString() })
+        .eq("id", savedConversationId).eq("user_id", user.id);
+      if (updateError) return badRequest("Unable to prepare this conversation.", 500);
+    } else {
+      const { data: created, error } = await supabase.from("conversations").insert({
+        user_id: user.id,
+        title: latestUserMessage.content.slice(0, 80),
+        provider: selectedProvider,
+        model,
+      }).select("id").single();
+      if (error || !created) return badRequest("Unable to create this conversation.", 500);
+      savedConversationId = created.id;
+    }
+
+    const { error: userSaveError } = await supabase.from("messages").insert({
+      conversation_id: savedConversationId,
+      user_id: user.id,
+      role: "user",
+      content: latestUserMessage.content,
+    });
+    if (userSaveError) return badRequest("Unable to save your message.", 500);
+
+    const abortController = new AbortController();
+    request.signal.addEventListener("abort", () => abortController.abort(), { once: true });
+    const encoder = new TextEncoder();
+    const responseBody = new ReadableStream<Uint8Array>({
+      async start(controller) {
+        const send = (event: string, payload: Record<string, unknown>) => {
+          controller.enqueue(encoder.encode(`event: ${event}\\ndata: ${JSON.stringify(payload)}\\n\\n`));
+        };
+        let reply = "";
+        try {
+          send("meta", {
+            conversationId: savedConversationId,
+            usage: { shortRemaining: quota.short_remaining, dailyRemaining: quota.daily_remaining },
+          });
+          for await (const delta of streamReply(selectedProvider, model, validatedMessages, abortController.signal)) {
+            if (!delta) continue;
+            reply += delta;
+            send("token", { text: delta });
+          }
+
+          const finalReply = reply || "The model returned an empty response.";
+          const { error: assistantSaveError } = await supabase.from("messages").insert({
+            conversation_id: savedConversationId,
+            user_id: user.id,
+            role: "assistant",
+            content: finalReply,
+          });
+          if (assistantSaveError) {
+            send("error", { error: "Your response was generated but could not be saved." });
+          } else {
+            send("done", { conversationId: savedConversationId });
+          }
+        } catch (error) {
+          if (abortController.signal.aborted) {
+            send("error", { error: "The request was cancelled before completion." });
+          } else if (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")) {
+            send("error", { error: "The AI provider took too long to respond. Please try again." });
+          } else {
+            send("error", { error: "The AI provider could not complete your request. Please try again." });
+          }
+        } finally {
+          controller.close();
+        }
+      },
+      cancel() {
+        abortController.abort();
+      },
+    });
+
+    return new Response(responseBody, {
+      headers: {
+        "Content-Type": "text/event-stream; charset=utf-8",
+        "Cache-Control": "private, no-store, no-transform",
+        Connection: "keep-alive",
+        "X-Accel-Buffering": "no",
+      },
     });
   }
 
