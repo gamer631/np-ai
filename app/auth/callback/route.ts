@@ -3,7 +3,11 @@ import { createClient } from "@/lib/supabase/server";
 
 export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get("code");
-  const next = request.nextUrl.searchParams.get("next") ?? "/";
+  const requestedNext = request.nextUrl.searchParams.get("next") ?? "/";
+  // Only accept same-origin relative paths; reject protocol-relative and absolute URLs.
+  const next = requestedNext.startsWith("/") && !requestedNext.startsWith("//") && !requestedNext.includes("\\\\")
+    ? requestedNext
+    : "/";
   if (code) {
     const supabase = await createClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
