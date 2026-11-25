@@ -5,8 +5,8 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
 
 from nilcenter import NIL
 from nilcenter.manifest import ToolManifest
@@ -61,9 +61,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         try:
             payload = json.loads(args.manifest.read_text(encoding="utf-8"))
             if not isinstance(payload, dict):
-                raise ValueError("Manifest root must be a JSON object")
+                raise TypeError("Manifest root must be a JSON object")
             manifest = ToolManifest.from_mapping(payload)
-        except (OSError, json.JSONDecodeError, ValueError) as exc:
+        except (OSError, json.JSONDecodeError, TypeError, ValueError) as exc:
             print(f"Manifest validation failed: {exc}", file=sys.stderr)
             return 2
         print(f"Valid manifest: {manifest.id} ({manifest.version})")
