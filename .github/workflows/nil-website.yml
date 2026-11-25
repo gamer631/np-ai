@@ -20,9 +20,9 @@ concurrency:
 
 jobs:
   quality:
-    name: Install, lint, typecheck and build
+    name: Reproducible install, audit, lint, typecheck and build
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: website
@@ -33,8 +33,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Install dependencies
-        run: npm install
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+      - name: Install exact locked dependencies
+        run: npm ci --no-audit --no-fund
       - name: Dependency audit
         run: npm audit --audit-level=high
       - name: Lint
