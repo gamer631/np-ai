@@ -8,7 +8,7 @@ from dataclasses import dataclass
 
 from nilcenter.models import RiskLevel
 
-_ID_PATTERN = re.compile(r"^[a-z0-9]+(?:[.-][a-z0-9]+)+$")
+_ID_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*(?:\.[a-z0-9]+(?:-[a-z0-9]+)*)+$")
 _VERSION_PATTERN = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:[-+][0-9A-Za-z.-]+)?$")
 _ALLOWED_FIELDS = {
     "id",
@@ -40,8 +40,7 @@ class ToolManifest:
         if unknown:
             raise ValueError(f"Unknown manifest fields: {', '.join(sorted(unknown))}")
 
-        required = _ALLOWED_FIELDS
-        missing = required - set(value)
+        missing = _ALLOWED_FIELDS - set(value)
         if missing:
             raise ValueError(f"Missing manifest fields: {', '.join(sorted(missing))}")
 
