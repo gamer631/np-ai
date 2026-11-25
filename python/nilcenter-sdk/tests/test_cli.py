@@ -22,7 +22,7 @@ def test_cli_updates_experiment_status(tmp_path, capsys):
     store = tmp_path / "experiments.json"
     assert main([
         "experiments", "--store", str(store), "create",
-        "mathematics", "Prime gaps",
+        "scientific-computing", "Prime gaps",
     ]) == 0
     created = capsys.readouterr().out
     experiment_id = created.split()[1].rstrip(":")
