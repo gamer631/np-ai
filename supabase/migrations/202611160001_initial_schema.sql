@@ -70,7 +70,7 @@ create policy "Users manage own messages" on public.messages for all to authenti
 revoke all on public.chat_usage_events from anon, authenticated;
 grant select on public.profiles, public.conversations, public.messages to authenticated;
 grant insert, update, delete on public.conversations, public.messages to authenticated;
-grant usage, select on all sequences in schema public to authenticated;
+-- No application table requires client-side sequence access; keep identity sequences private.
 
 create or replace function public.handle_new_user()
 returns trigger
