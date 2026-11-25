@@ -7,6 +7,10 @@ Standalone public company website for Nepal Innovation Labs. This app is deliber
 - Node.js 20.9+
 - npm
 
+## Configuration
+
+Copy `.env.example` to `.env.local`. Set `NEXT_PUBLIC_SITE_URL` only after verifying the production domain and DNS. Without it, canonical metadata URLs and sitemap entries are intentionally omitted.
+
 ## Run locally
 
 ```bash
