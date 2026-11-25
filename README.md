@@ -42,13 +42,25 @@ Requirements: Node.js 20.9 or newer.
 ```bash
 git clone https://github.com/gamer631/np-ai.git
 cd np-ai
-npm install
+npm ci
 cp .env.example .env.local
 # Fill in Supabase URL, publishable key, and at least one AI provider key.
 npm run dev
 ```
 
 Open http://localhost:3000 and create an account at /auth.
+
+## Local database security tests
+
+Requirements: Docker and the Supabase CLI.
+
+```bash
+supabase start
+supabase db reset
+supabase test db
+```
+
+The pgTAP suite in `supabase/tests/rls_quota.test.sql` checks two-user row isolation, cross-account writes, quota-ledger privacy, and the short-window quota boundary. These tests run against a disposable local Supabase database; they do not apply migrations to your hosted project.
 
 ## AI provider keys
 
