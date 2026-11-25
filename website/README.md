@@ -35,6 +35,6 @@ A lockfile should be generated and committed after a clean install in the intend
 
 - The site uses the NIL.ai research-laboratory visual direction.
 - Product links currently point to the existing NP.ai GitHub repository.
-- The domain configured in metadata is a placeholder until ownership and DNS are verified.
+- Canonical metadata and sitemap URLs are omitted until `NEXT_PUBLIC_SITE_URL` is set to a verified domain.
 - Do not add fabricated customer logos, partnerships, research results or performance claims.
 - Review content, accessibility and security before production deployment.
