@@ -86,13 +86,30 @@ export default function Home() {
     try {
       const response = await fetch("/api/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider: current.provider, model: current.model, messages: next, conversationId })
+        headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
+        body: JSON.stringify({ provider: current.provider, model: current.model, messages: next, conversationId, stream: true })
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Unable to get a response.");
-      setMessages([...next, { role: "assistant", content: data.reply }]);
-      setConversationId(data.conversationId || conversationId);
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || "Unable to get a response.");
+      }
+      if (!response.headers.get("content-type")?.includes("text/event-stream")) {
+        const data = await response.json();
+        setMessages([...next, { role: "assistant", content: data.reply }]);
+        setConversationId(data.conversationId || conversationId);
+      } else {
+        let accumulated = "";
+        setMessages([...next, { role: "assistant", content: "" }]);
+        await readChatEventStream(
+          response,
+          (id) => setConversationId(id),
+          (delta) => {
+            accumulated += delta;
+            setMessages([...next, { role: "assistant", content: accumulated }]);
+          },
+        );
+        if (!accumulated) setMessages([...next, { role: "assistant", content: "The model returned an empty response." }]);
+      }
       void refreshHistory();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
@@ -158,4 +175,66 @@ export default function Home() {
       <footer><span>© {new Date().getFullYear()} NP.ai</span><span>Built for curiosity. Powered by choice.</span></footer>
     </main>
   );
+}
+
+
+async function readChatEventStream(
+  response: Response,
+  onConversation: (id: string) => void,
+  onToken: (text: string) => void,
+): Promise<void> {
+  if (!response.body) throw new Error("The streaming response was empty.");
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let eventName = "";
+  let dataLines: string[] = [];
+
+  const dispatch = () => {
+    if (!dataLines.length) {
+      eventName = "";
+      return;
+    }
+    const raw = dataLines.join("\\n");
+    dataLines = [];
+    const currentEvent = eventName;
+    eventName = "";
+    let payload: Record<string, unknown>;
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      payload = parsed && typeof parsed === "object" && !Array.isArray(parsed)
+        ? parsed as Record<string, unknown>
+        : {};
+    } catch {
+      throw new Error("The server sent an invalid streaming event.");
+    }
+    if (currentEvent === "meta" && typeof payload.conversationId === "string") {
+      onConversation(payload.conversationId);
+    } else if (currentEvent === "token" && typeof payload.text === "string") {
+      onToken(payload.text);
+    } else if (currentEvent === "error") {
+      throw new Error(typeof payload.error === "string" ? payload.error : "The response stream failed.");
+    }
+  };
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      buffer += decoder.decode(value, { stream: !done });
+      let newline = buffer.indexOf("\\n");
+      while (newline !== -1) {
+        const line = buffer.slice(0, newline).replace(/\\r$/, "");
+        buffer = buffer.slice(newline + 1);
+        if (!line) dispatch();
+        else if (line.startsWith("event:")) eventName = line.slice(6).trim();
+        else if (line.startsWith("data:")) dataLines.push(line.slice(5).replace(/^ /, ""));
+        newline = buffer.indexOf("\\n");
+      }
+      if (done) break;
+    }
+    if (buffer.startsWith("data:")) dataLines.push(buffer.slice(5).replace(/^ /, ""));
+    dispatch();
+  } finally {
+    reader.releaseLock();
+  }
 }
