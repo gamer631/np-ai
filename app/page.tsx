@@ -234,6 +234,9 @@ async function readChatEventStream(
     }
     if (buffer.startsWith("data:")) dataLines.push(buffer.slice(5).replace(/^ /, ""));
     dispatch();
+  } catch (error) {
+    try { await reader.cancel(); } catch { /* The stream may already be closed. */ }
+    throw error;
   } finally {
     reader.releaseLock();
   }
