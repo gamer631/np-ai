@@ -1,9 +1,11 @@
 import type { MetadataRoute } from "next";
 
 export default function sitemap(): MetadataRoute.Sitemap {
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+  if (!siteUrl) return [];
   return [
     {
-      url: "https://nil.ai",
+      url: new URL("/", siteUrl).toString(),
       lastModified: new Date(),
       changeFrequency: "monthly",
       priority: 1,
