@@ -5,9 +5,9 @@ from nilcenter.models import LabDescriptor, RiskLevel, ToolDescriptor, ToolResul
 from nilcenter.registry import ToolRegistry
 
 __all__ = [
+    "NIL",
     "LabCollection",
     "LabDescriptor",
-    "NIL",
     "RiskLevel",
     "ToolDescriptor",
     "ToolRegistry",
