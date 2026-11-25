@@ -50,11 +50,11 @@ class ExperimentStore:
             return {}
         payload = json.loads(self.path.read_text(encoding="utf-8"))
         if not isinstance(payload, list):
-            raise ValueError("Experiment store must contain a JSON array")
+            raise TypeError("Experiment store must contain a JSON array")
         records: dict[str, Experiment] = {}
         for item in payload:
             if not isinstance(item, dict):
-                raise ValueError("Experiment entries must be JSON objects")
+                raise TypeError("Experiment entries must be JSON objects")
             item["tags"] = tuple(item.get("tags", ()))
             experiment = Experiment(**item)
             records[experiment.id] = experiment
