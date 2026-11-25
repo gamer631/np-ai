@@ -13,6 +13,8 @@ Use two independently registered test users (A and B) in a non-production Supaba
 ## Authorization and tenant isolation
 
 - [ ] Unauthenticated requests to chat and conversation APIs return 401.
+- [ ] Email confirmation callback rejects absolute, protocol-relative and backslash-based external redirect destinations.
+- [ ] Callback codes are exchanged only through the configured Supabase Auth client.
 - [ ] User A can read only A's conversations and messages.
 - [ ] User B cannot read, update or delete A's conversations or messages by changing IDs.
 - [ ] A foreign conversation ID is rejected before quota consumption and before any provider request.
