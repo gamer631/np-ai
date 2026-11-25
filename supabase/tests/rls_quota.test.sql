@@ -1,6 +1,6 @@
 begin;
 
-select plan(7);
+select plan(16);
 
 -- Isolated fixture users; the auth trigger also exercises profile creation.
 insert into auth.users (
@@ -57,21 +57,16 @@ select throws_ok(
   'Authenticated users cannot read the private quota ledger'
 );
 
-do $
-declare
-  request_number integer;
-  quota_result record;
-  allowed_count integer := 0;
-begin
-  for request_number in 1..10 loop
-    select * into quota_result from public.consume_chat_quota();
-    if quota_result.allowed then
-      allowed_count := allowed_count + 1;
-    end if;
-  end loop;
-  perform is(allowed_count, 10, 'The first ten quota requests are allowed');
-end;
-$;
+select is((select allowed from public.consume_chat_quota()), true, 'The first quota request is allowed');
+select is((select allowed from public.consume_chat_quota()), true, 'The second quota request is allowed');
+select is((select allowed from public.consume_chat_quota()), true, 'The third quota request is allowed');
+select is((select allowed from public.consume_chat_quota()), true, 'The fourth quota request is allowed');
+select is((select allowed from public.consume_chat_quota()), true, 'The fifth quota request is allowed');
+select is((select allowed from public.consume_chat_quota()), true, 'The sixth quota request is allowed');
+select is((select allowed from public.consume_chat_quota()), true, 'The seventh quota request is allowed');
+select is((select allowed from public.consume_chat_quota()), true, 'The eighth quota request is allowed');
+select is((select allowed from public.consume_chat_quota()), true, 'The ninth quota request is allowed');
+select is((select allowed from public.consume_chat_quota()), true, 'The tenth quota request is allowed');
 
 select is(
   (select allowed from public.consume_chat_quota()),
