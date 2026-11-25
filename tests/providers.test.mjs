@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { generateReply } from "../lib/ai/providers.ts";
+import { generateReply, streamReply } from "../lib/ai/providers.ts";
 
 const originalKeys = {
   OPENAI_API_KEY: process.env.OPENAI_API_KEY,
@@ -95,4 +95,65 @@ function restoreKeys() {
     if (value === undefined) delete process.env[key];
     else process.env[key] = value;
   }
+}
+
+
+test("OpenAI streaming adapter emits text deltas and ignores the terminal marker", async (t) => {
+  process.env.OPENAI_API_KEY = "test-openai-key";
+  t.after(() => restoreKeys());
+  t.mock.method(globalThis, "fetch", async (url, init) => {
+    assert.equal(url, "https://api.openai.com/v1/chat/completions");
+    assert.equal(JSON.parse(init.body).stream, true);
+    return new Response(
+      'data: {"choices":[{"delta":{"content":"Hello"}}]}\\n\\ndata: {"choices":[{"delta":{"content":" Nepal"}}]}\\n\\ndata: [DONE]\\n\\n',
+      { status: 200, headers: { "content-type": "text/event-stream" } },
+    );
+  });
+  assert.equal(await collect(streamReply("openai", "gpt-4o-mini", [{ role: "user", content: "Hi" }])), "Hello Nepal");
+});
+
+test("Anthropic streaming adapter emits only text delta events", async (t) => {
+  process.env.ANTHROPIC_API_KEY = "test-anthropic-key";
+  t.after(() => restoreKeys());
+  t.mock.method(globalThis, "fetch", async (_url, init) => {
+    assert.equal(JSON.parse(init.body).stream, true);
+    return new Response(
+      'event: content_block_delta\\ndata: {"type":"content_block_delta","delta":{"type":"text_delta","text":"Namaste"}}\\n\\nevent: message_stop\\ndata: {"type":"message_stop"}\\n\\n',
+      { status: 200, headers: { "content-type": "text/event-stream" } },
+    );
+  });
+  assert.equal(await collect(streamReply("anthropic", "claude-sonnet-4-20250514", [{ role: "user", content: "Hi" }])), "Namaste");
+});
+
+test("Google streaming adapter maps candidate text parts", async (t) => {
+  process.env.GOOGLE_API_KEY = "test-google-key";
+  t.after(() => restoreKeys());
+  t.mock.method(globalThis, "fetch", async (url, init) => {
+    assert.match(String(url), /:streamGenerateContent\\?alt=sse$/);
+    assert.equal(init.headers["x-goog-api-key"], "test-google-key");
+    return new Response(
+      'data: {"candidates":[{"content":{"parts":[{"text":"Jai "},{"text":"Nepal"}]}}]}\\n\\n',
+      { status: 200, headers: { "content-type": "text/event-stream" } },
+    );
+  });
+  assert.equal(await collect(streamReply("google", "gemini-2.5-flash", [{ role: "user", content: "Hi" }])), "Jai Nepal");
+});
+
+test("streaming provider errors are redacted", async (t) => {
+  process.env.OPENAI_API_KEY = "test-openai-key";
+  t.after(() => restoreKeys());
+  t.mock.method(globalThis, "fetch", async () => new Response(
+    JSON.stringify({ error: { message: "private upstream stream error" } }),
+    { status: 429 },
+  ));
+  await assert.rejects(
+    collect(streamReply("openai", "gpt-4o-mini", [{ role: "user", content: "Hi" }])),
+    (error) => error.message === "AI provider request failed.",
+  );
+});
+
+async function collect(stream) {
+  let output = "";
+  for await (const chunk of stream) output += chunk;
+  return output;
 }
