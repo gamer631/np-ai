@@ -1,0 +1,47 @@
+name: NIL.ai website CI
+
+on:
+  pull_request:
+    paths:
+      - "website/**"
+      - ".github/workflows/nil-website.yml"
+  push:
+    branches: [main, "nil-ai/**"]
+    paths:
+      - "website/**"
+      - ".github/workflows/nil-website.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nil-website-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Reproducible install, audit, lint, typecheck and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: website
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+      - name: Install exact locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Dependency audit
+        run: npm audit --audit-level=high
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Production build
+        run: npm run build
