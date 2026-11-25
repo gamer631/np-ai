@@ -6,7 +6,7 @@ on:
       - "website/**"
       - ".github/workflows/nil-website.yml"
   push:
-    branches: [main]
+    branches: [main, "nil-ai/**"]
     paths:
       - "website/**"
       - ".github/workflows/nil-website.yml"
