@@ -15,7 +15,7 @@ Copy `.env.example` to `.env.local`. Set `NEXT_PUBLIC_SITE_URL` only after verif
 
 ```bash
 cd website
-npm install
+npm ci
 npm run dev
 ```
 
@@ -29,7 +29,7 @@ npm run lint
 npm run build
 ```
 
-A lockfile should be generated and committed after a clean install in the intended Node/npm environment.
+The committed package-lock.json is the source of truth; CI uses npm ci to ensure reproducible installs.
 
 ## Notes
 
