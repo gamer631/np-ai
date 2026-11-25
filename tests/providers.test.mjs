@@ -105,7 +105,7 @@ test("OpenAI streaming adapter emits text deltas and ignores the terminal marker
     assert.equal(url, "https://api.openai.com/v1/chat/completions");
     assert.equal(JSON.parse(init.body).stream, true);
     return new Response(
-      'data: {"choices":[{"delta":{"content":"Hello"}}]}\\n\\ndata: {"choices":[{"delta":{"content":" Nepal"}}]}\\n\\ndata: [DONE]\\n\\n',
+      'data: {"choices":[{"delta":{"content":"Hello"}}]}\n\ndata: {"choices":[{"delta":{"content":" Nepal"}}]}\n\ndata: [DONE]\n\n',
       { status: 200, headers: { "content-type": "text/event-stream" } },
     );
   });
@@ -118,7 +118,7 @@ test("Anthropic streaming adapter emits only text delta events", async (t) => {
   t.mock.method(globalThis, "fetch", async (_url, init) => {
     assert.equal(JSON.parse(init.body).stream, true);
     return new Response(
-      'event: content_block_delta\\ndata: {"type":"content_block_delta","delta":{"type":"text_delta","text":"Namaste"}}\\n\\nevent: message_stop\\ndata: {"type":"message_stop"}\\n\\n',
+      'event: content_block_delta\ndata: {"type":"content_block_delta","delta":{"type":"text_delta","text":"Namaste"}}\n\nevent: message_stop\ndata: {"type":"message_stop"}\n\n',
       { status: 200, headers: { "content-type": "text/event-stream" } },
     );
   });
@@ -129,10 +129,10 @@ test("Google streaming adapter maps candidate text parts", async (t) => {
   process.env.GOOGLE_API_KEY = "test-google-key";
   t.after(() => restoreKeys());
   t.mock.method(globalThis, "fetch", async (url, init) => {
-    assert.match(String(url), /:streamGenerateContent\\?alt=sse$/);
+    assert.match(String(url), /:streamGenerateContent\?alt=sse$/);
     assert.equal(init.headers["x-goog-api-key"], "test-google-key");
     return new Response(
-      'data: {"candidates":[{"content":{"parts":[{"text":"Jai "},{"text":"Nepal"}]}}]}\\n\\n',
+      'data: {"candidates":[{"content":{"parts":[{"text":"Jai "},{"text":"Nepal"}]}}]}\n\n',
       { status: 200, headers: { "content-type": "text/event-stream" } },
     );
   });
