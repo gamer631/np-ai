@@ -30,7 +30,8 @@ const principles = [
 
 export default function HomePage() {
   return (
-    <main>
+    <main id="main-content">
+      <a className="skip-link" href="#main-content">Skip to content</a>
       <header className="site-header">
         <a className="wordmark" href="#top" aria-label="NIL.ai home">
           <span className="mark">N</span>
@@ -144,7 +145,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      <footer className="footer">
+      <footer className="footer" aria-label="Site footer">
         <div className="footer-top"><a className="wordmark" href="#top"><span className="mark">N</span><span>NIL<span className="accent">.ai</span></span></a><p>Intelligence. Innovation. Engineering.</p></div>
         <div className="footer-bottom"><span>© {new Date().getFullYear()} Nepal Innovation Labs. Working identity.</span><a href="https://github.com/gamer631/np-ai">GitHub ↗</a><span>Born in Nepal. Built for the world.</span></div>
       </footer>
