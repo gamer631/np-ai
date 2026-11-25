@@ -13,6 +13,7 @@ NP.ai is an application, not a foundation model. It securely calls AI providers 
 - Per-account quotas enforced atomically in PostgreSQL: 10 chats per 10 minutes and 100 per 24 hours
 - Conversation and message persistence with user ownership enforced by Row Level Security
 - Conversation history endpoints and a basic history panel
+- Streaming responses from OpenAI, Anthropic, and Google with server-side persistence
 - Provider keys stay server-side
 
 ## Stack
@@ -60,7 +61,7 @@ supabase db reset
 supabase test db
 ```
 
-The pgTAP suite in `supabase/tests/rls_quota.test.sql` checks two-user row isolation, cross-account writes, quota-ledger privacy, and the short-window quota boundary. These tests run against a disposable local Supabase database; they do not apply migrations to your hosted project.
+The pgTAP suite in `supabase/tests/rls_quota.test.sql` checks two-user row isolation, cross-account writes, quota-ledger privacy, and the short-window quota boundary. CI pins Supabase CLI 3.4.0 and runs the suite against a disposable local stack. These tests run against a disposable local Supabase database; they do not apply migrations to your hosted project.
 
 ## AI provider keys
 
@@ -83,7 +84,7 @@ The SQL migration creates:
 
 RLS is enabled on every application table. The quota function uses a per-user PostgreSQL advisory transaction lock so concurrent requests cannot race past the quota. It is callable only by authenticated users and derives the user ID from `auth.uid()`.
 
-The chat endpoint also validates request sizes, model/provider pairing, message roles, and server provider configuration. Provider calls have a timeout and normalized errors.
+The chat endpoint also validates request sizes, model/provider pairing, message roles, and server provider configuration. Provider calls have a timeout and normalized errors. Streaming errors are redacted and client cancellation aborts upstream work.
 
 ## Important limitations
 
@@ -98,8 +99,11 @@ The chat endpoint also validates request sizes, model/provider pairing, message 
 - [x] User profiles and RLS-protected conversations
 - [x] Per-account atomic chat quotas
 - [ ] Live Supabase migration and authentication verification
-- [ ] Automated unit, integration, and end-to-end tests
-- [ ] Streaming responses and file uploads
+- [x] Provider adapter unit tests (including streaming and error redaction)
+- [x] Local Supabase pgTAP suite added; passing CI run still required
+- [ ] Chat API integration and end-to-end tests
+- [x] Streaming responses across the three supported providers
+- [ ] File and document uploads
 - [ ] Billing, plan management, and operational monitoring
 - [ ] Production deployment and security review
 
