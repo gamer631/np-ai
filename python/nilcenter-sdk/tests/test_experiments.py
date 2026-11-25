@@ -47,6 +47,6 @@ def test_empty_name_is_rejected(tmp_path):
 def test_corrupt_store_is_not_silently_overwritten(tmp_path):
     path = tmp_path / "experiments.json"
     path.write_text(json.dumps({"not": "a list"}), encoding="utf-8")
-    with pytest.raises(ValueError):
+    with pytest.raises(TypeError):
         ExperimentStore(path).create("New", "mathematics")
     assert json.loads(path.read_text(encoding="utf-8")) == {"not": "a list"}
