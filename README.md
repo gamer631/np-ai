@@ -1,3 +1,9 @@
+# Nepal Innovation Labs — NIL.ai
+
+**Born in Nepal. Built for the world.**
+
+Nepal Innovation Labs is the company identity behind NIL.ai. The standalone company website lives in [website/](./website/). NP.ai is the open-source, multi-provider AI workspace built by the lab.
+
 # NP.ai
 
 **Think beyond.** NP.ai is a Nepal-first multi-provider AI workspace.
@@ -90,7 +96,7 @@ The chat endpoint also validates request sizes, model/provider pairing, message 
 
 - Supabase project creation, database migration execution, Auth URL configuration, provider keys, and deployment secrets must be completed in the owner's accounts.
 - The current quotas count chat requests, including requests where a provider later fails; this avoids free retries bypassing usage accounting.
-- Account creation abuse protection, billing, payment collection, streaming, attachments, admin tools, and comprehensive automated tests are not yet implemented.
+- Account creation abuse protection, billing, payment collection, attachments, admin tools, and comprehensive chat API/end-to-end tests are not yet implemented.
 - This repository has not yet been verified with a live Supabase project or production provider credentials. Do not treat it as production-ready until the CI checks, migration, auth flow, quota behavior, and staging deployment are tested.
 
 ## Roadmap
