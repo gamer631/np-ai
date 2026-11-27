@@ -115,5 +115,8 @@ class RunManifest:
         }
 
     def fingerprint(self) -> str:
-        """Return SHA-256 over canonical manifest metadata."""
-        return hashlib.sha256(_canonical_json(self.to_dict())).hexdigest()
+        """Return a stable hash of experiment configuration, excluding run identity/time."""
+        data = self.to_dict()
+        data.pop("job_id", None)
+        data.pop("created_at", None)
+        return hashlib.sha256(_canonical_json(data)).hexdigest()
