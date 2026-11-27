@@ -54,3 +54,10 @@ def test_cleanup_removes_workspace(tmp_path):
     manager.write_input(run_id, "data.txt", b"data")
     manager.cleanup(run_id)
     assert not workspace.exists()
+
+def test_rejects_dot_path(tmp_path):
+    manager = WorkspaceManager(tmp_path / "work")
+    run_id = str(uuid4())
+    manager.create(run_id)
+    with pytest.raises(WorkspaceError):
+        manager.resolve(run_id, ".")
