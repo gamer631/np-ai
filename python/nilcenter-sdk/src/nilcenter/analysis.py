@@ -20,7 +20,7 @@ def analyze(
     Optional regression_pair is (predictor, response). The result is JSON-friendly.
     """
     if not isinstance(table, DataTable):
-        raise TypeTypeError("table must be a DataTable")
+        raise TypeError("table must be a DataTable")
     selected = tuple(columns) if columns is not None else table.columns
     if not selected or len(selected) > MAX_ANALYSIS_COLUMNS:
         raise DatasetError(f"select between 1 and {MAX_ANALYSIS_COLUMNS} columns")
