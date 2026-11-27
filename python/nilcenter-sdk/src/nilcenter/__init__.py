@@ -11,7 +11,7 @@ from nilcenter.sqlite_experiments import ExperimentEvent, ExperimentRecord, SQLi
 from nilcenter.workspaces import WorkspaceError, WorkspaceManager
 from nilcenter.worker_contract import ArtifactSpec, WorkerBackend, WorkerRequest, WorkerResult, WorkerStatus
 from nilcenter.coordinator import WorkerCoordinator
-from nilcenter.run_manifest import Dependency, RunArtifact, RunManifest\nfrom nilcenter.artifact_store import ArtifactStore, StoredArtifact
+from nilcenter.run_manifest import Dependency, RunArtifact, RunManifest\nfrom nilcenter.artifact_store import ArtifactStore, StoredArtifact\nfrom nilcenter.run_registry import RunRegistry, RunRecord
 
 __all__ = [
     "NIL", "CapabilityBroker", "CapabilityGrant", "ExecutionRequest", "Experiment",
@@ -19,5 +19,5 @@ __all__ = [
     "JobTransitionError", "ResearchJob", "LabCollection", "LabDescriptor", "ResourceLimits",
     "RiskLevel", "RuntimePolicy", "SQLiteExperimentStore", "ToolDescriptor", "ToolRegistry",
     "ToolResult", "WorkspaceError", "WorkspaceManager", "ArtifactSpec", "WorkerBackend",
-    "WorkerRequest", "WorkerResult", "WorkerStatus", "WorkerCoordinator", "Dependency", "RunArtifact", "RunManifest", "ArtifactStore", "StoredArtifact",
+    "WorkerRequest", "WorkerResult", "WorkerStatus", "WorkerCoordinator", "Dependency", "RunArtifact", "RunManifest", "ArtifactStore", "StoredArtifact", "RunRegistry", "RunRecord",
 ]
