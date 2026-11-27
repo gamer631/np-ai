@@ -34,3 +34,8 @@ launches, code runs, processes are spawned, or sandbox guarantees are made.
 WorkerRequest.validate() rejects network access and validates limits, IDs,
 artifact paths, duplicates, and file metadata. Results are terminal-only and
 output length is bounded.
+
+
+## Coordinator layer
+
+`WorkerCoordinator` joins the job registry, workspace manager, and injected backend. It validates requests, provisions a workspace, launches through the backend interface, synchronizes observed backend state, requests cancellation without claiming a stop prematurely, and permits output collection only after the job is terminal. The coordinator is tested with a stub backend; it is not a sandbox and does not ship a process-execution backend.
