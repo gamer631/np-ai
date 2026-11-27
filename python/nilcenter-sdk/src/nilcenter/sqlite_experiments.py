@@ -57,7 +57,7 @@ class SQLiteExperimentStore:
         with self._connect() as db:
             db.executescript("""
                 CREATE TABLE IF NOT EXISTS experiments (
-                    id TEXT PRIMARYPRIMARY KEY,
+                    id TEXT PRIMARY KEY,
                     name TEXT NOT NULL,
                     laboratory TEXT NOT NULL,
                     status TEXT NOT NULL,
