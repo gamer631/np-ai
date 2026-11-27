@@ -27,7 +27,7 @@ class DataTable:
         """Parse a bounded CSV string, requiring a header and rectangular rows."""
         if not isinstance(text, str):
             raise TypeError("CSV input must be text")
-        if not text or len(text.encode("utf-8")) > MAX_CSV_BYTES:
+        if not text or len(text) > MAX_CSV_BYTES or len(text.encode("utf-8")) > MAX_CSV_BYTES:
             raise DatasetError("CSV is empty or exceeds size limit")
         try:
             reader = csv.reader(io.StringIO(text, newline=""), strict=True)
