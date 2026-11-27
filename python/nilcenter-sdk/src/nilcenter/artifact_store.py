@@ -36,7 +36,7 @@ class ArtifactStore:
         self.root = Path(root).expanduser().absolute()
         self.max_bytes = max_bytes
         self.blobs = self.root / "blobs"
-        self.metadata = self.root / "artifacts.sqlite3"
+        self.metadata_path = self.root / "artifacts.sqlite3"
         self._lock = RLock()
         self.root.mkdir(parents=True, exist_ok=True)
         self.blobs.mkdir(exist_ok=True)
@@ -45,7 +45,7 @@ class ArtifactStore:
         self._initialize()
 
     def _connect(self) -> sqlite3.Connection:
-        db = sqlite3.connect(self.metadata, timeout=10)
+        db = sqlite3.connect(self.metadata_path, timeout=10)
         db.execute("PRAGMA journal_mode=WAL")
         db.execute("PRAGMA synchronous=FULL")
         return db
