@@ -26,6 +26,7 @@ from nilcenter.workspaces import WorkspaceError, WorkspaceManager
 
 __all__ = [
     "NIL",
+    "analyze",
     "ArtifactSpec",
     "ArtifactStore",
     "CalculationError",
