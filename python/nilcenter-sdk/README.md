@@ -152,7 +152,11 @@ Analyze a loaded CSV table in one call: descriptive summaries for selected numer
 ```python
 from nilcenter import DataTable, analyze
 
-sample = DataTable.from_csv("x,y\n1,3\n2,5\n3,7\n")
+sample = DataTable.from_csv("""x,y
+1,3
+2,5
+3,7
+""")
 report = analyze(sample, regression_pair=("x", "y"))
 print(report["summaries"]["x"])
 print(report["regression"])
