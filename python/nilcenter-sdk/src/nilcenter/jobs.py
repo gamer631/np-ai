@@ -103,7 +103,7 @@ class JobRegistry:
     def transition(self, job_id: str, state: JobState, *, detail: str = "") -> ResearchJob:
         """Apply a permitted transition and update the timestamp."""
         if not isinstance(state, JobState):
-            raise ValueError("state must be a JobState")
+            raise TypeError("state must be a JobState")
         with self._lock:
             current = self.get(job_id)
             if state not in _ALLOWED[current.state]:

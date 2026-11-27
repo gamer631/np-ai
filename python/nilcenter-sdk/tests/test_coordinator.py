@@ -7,8 +7,8 @@ import pytest
 
 from nilcenter.coordinator import WorkerCoordinator
 from nilcenter.jobs import JobRegistry, JobState
-from nilcenter.workspaces import WorkspaceManager
 from nilcenter.worker_contract import WorkerRequest, WorkerResult, WorkerStatus
+from nilcenter.workspaces import WorkspaceManager
 
 
 class StubBackend:
@@ -56,6 +56,7 @@ def test_launch_failure_sets_failed(tmp_path: object) -> None:
     class Broken(StubBackend):
         def launch(self, request: WorkerRequest) -> str:
             raise RuntimeError("backend unavailable")
+
     job = coordinator(tmp_path, Broken()).launch(req())
     assert job.state == JobState.FAILED
     assert "RuntimeError" in job.detail
@@ -76,3 +77,36 @@ def test_collect_requires_terminal_job(tmp_path: object) -> None:
     job = c.launch(req())
     with pytest.raises(ValueError):
         c.collect(job.id)
+
+
+def test_immediate_success_is_transitioned_legally(tmp_path: object) -> None:
+    backend = StubBackend(status=WorkerStatus.SUCCEEDED)
+    job = coordinator(tmp_path, backend).launch(req())
+    assert job.state == JobState.SUCCEEDED
+
+
+def test_initial_pending_keeps_starting_state(tmp_path: object) -> None:
+    backend = StubBackend(status=WorkerStatus.PENDING)
+    job = coordinator(tmp_path, backend).launch(req())
+    assert job.state == JobState.STARTING
+
+
+def test_poll_failure_marks_job_failed(tmp_path: object) -> None:
+    class BrokenPoll(StubBackend):
+        def __init__(self) -> None:
+            super().__init__()
+            self.poll_calls = 0
+
+        def poll(self, handle: str) -> WorkerStatus:
+            self.poll_calls += 1
+            if self.poll_calls == 1:
+                return WorkerStatus.RUNNING
+            raise RuntimeError("poll error")
+
+    backend = BrokenPoll()
+    c = coordinator(tmp_path, backend)
+    job = c.launch(req())
+    assert job.state == JobState.RUNNING
+    job = c.poll(job.id)
+    assert job.state == JobState.FAILED
+    assert "Poll error" in job.detail
