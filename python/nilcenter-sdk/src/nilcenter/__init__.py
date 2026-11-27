@@ -9,7 +9,7 @@ from nilcenter.registry import ToolRegistry
 from nilcenter.runtime_policy import ExecutionRequest, ResourceLimits, RuntimePolicy
 from nilcenter.sqlite_experiments import ExperimentEvent, ExperimentRecord, SQLiteExperimentStore
 from nilcenter.workspaces import WorkspaceError, WorkspaceManager
-from nilcenter.worker_contract import ArtifactSpec, WorkerBackend, WorkerRequest, WorkerResult, WorkerStatus
+from nilcenter.worker_contract import ArtifactSpec, WorkerBackend, WorkerRequest, WorkerResult, WorkerStatus\nfrom nilcenter.coordinator import WorkerCoordinator
 
 __all__ = [
     "NIL",
