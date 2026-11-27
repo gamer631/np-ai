@@ -103,12 +103,12 @@ class ArtifactStore:
             if row is None:
                 raise KeyError(digest)
             if path.is_symlink() or not path.is_file():
-                raise IOError("artifact blob is missing or unsafe")
+                raise OSError("artifact blob is missing or unsafe")
             if path.stat().st_size != row[0] or row[0] > self.max_bytes:
-                raise IOError("artifact size metadata mismatch")
+                raise OSError("artifact size metadata mismatch")
             data = path.read_bytes()
             if hashlib.sha256(data).hexdigest() != digest:
-                raise IOError("artifact content hash mismatch")
+                raise OSError("artifact content hash mismatch")
             return data
 
     def metadata(self, digest: str) -> StoredArtifact:
@@ -129,7 +129,7 @@ class ArtifactStore:
                 if row is None:
                     return False
                 if path.is_symlink():
-                    raise IOError("refusing to delete symlink blob")
+                    raise OSError("refusing to delete symlink blob")
                 db.execute("DELETE FROM artifacts WHERE sha256=?", (digest,))
             if path.exists():
                 path.unlink()
