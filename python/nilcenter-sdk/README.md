@@ -143,3 +143,21 @@ table = DataTable.from_csv("time,value\\n0,1.2\\n1,2.4\\n2,3.1\\n")
 print(table.columns, table.row_count)
 print(describe(table.numeric_column("value")))
 ```
+
+
+## Integrated dataset analysis
+
+Analyze a loaded CSV table in one call: descriptive summaries for selected numeric columns, pairwise correlations (undefined correlations are returned as `None`), and an optional linear regression fit.
+
+```python
+from nilcenter import DataTable, analyze
+
+sample = DataTable.from_csv("""x,y
+1,3
+2,5
+3,7
+""")
+report = analyze(sample, regression_pair=("x", "y"))
+print(report["summaries"]["x"])
+print(report["regression"])
+```
