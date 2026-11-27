@@ -36,7 +36,7 @@ class ArtifactSpec:
 
     def validate(self, *, max_bytes: int = 5_000_000) -> None:
         path = PurePosixPath(self.path)
-        if not self.path or path.is_absolute() or any(part in ("", ".", "..") for part in path.parts):
+        if not self.path or not path.parts or path.is_absolute() or any(part in ("", ".", "..") for part in path.parts):
             raise ValueError("artifact path must be a safe relative path")
         if self.size_bytes < 0 or self.size_bytes > max_bytes:
             raise ValueError("artifact size exceeds limit")
