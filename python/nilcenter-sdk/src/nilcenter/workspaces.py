@@ -52,7 +52,7 @@ class WorkspaceManager:
         if "\\ " in relative_path:
             raise WorkspaceError("Invalid path")
         parts = Path(relative_path).parts
-        if any(part in ("", ".", "..") for part in parts):
+        if not parts or any(part in ("", ".", "..") for part in parts):
             raise WorkspaceError("Path traversal is not allowed")
         workspace = self.root / run_id
         if not workspace.exists() or workspace.is_symlink():
