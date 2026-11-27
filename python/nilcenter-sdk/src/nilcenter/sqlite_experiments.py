@@ -76,7 +76,7 @@ class SQLiteExperimentStore:
                 );
                 CREATE INDEX IF NOT EXISTS experiment_events_by_id
                     ON experiment_events(experiment_id, id);
-            """.replace("id TEXT NOT NULL PRIMARYPRIMARYKEY", "id TEXT PRIMARY KEY NOT NULL"))
+            """)
 
     @staticmethod
     def _record(row: sqlite3.Row) -> ExperimentRecord:
