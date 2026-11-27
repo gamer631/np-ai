@@ -7,8 +7,8 @@ import pytest
 
 from nilcenter.coordinator import WorkerCoordinator
 from nilcenter.jobs import JobRegistry, JobState
-from nilcenter.workspaces import WorkspaceManager
 from nilcenter.worker_contract import WorkerRequest, WorkerResult, WorkerStatus
+from nilcenter.workspaces import WorkspaceManager
 
 
 class StubBackend:
