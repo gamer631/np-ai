@@ -6,9 +6,9 @@ import os
 import sqlite3
 import tempfile
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from threading import RLock
-from datetime import UTC, datetime
 
 
 @dataclass(frozen=True, slots=True)
@@ -91,7 +91,7 @@ class ArtifactStore:
                 db.execute("INSERT OR IGNORE INTO artifacts (sha256,size_bytes,created_at) VALUES(?,?,?)", (digest,len(data),now))
                 row=db.execute("SELECT sha256,size_bytes,created_at FROM artifacts WHERE sha256=?", (digest,)).fetchone()
             if row is None or row[1] != len(data):
-                raise IOError("artifact metadata integrity check failed")
+                raise OSError("artifact metadata integrity check failed")
             return StoredArtifact(row[0],row[1],row[2])
 
     def get(self, digest: str) -> bytes:
