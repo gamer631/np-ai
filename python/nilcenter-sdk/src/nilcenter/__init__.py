@@ -1,6 +1,7 @@
 """Public Python API for the NILcenter.ai research platform."""
 
 from nilcenter.artifact_store import ArtifactStore, StoredArtifact
+from nilcenter.math_engine import CalculationError, calculate
 from nilcenter.client import NIL, LabCollection
 from nilcenter.experiments import Experiment, ExperimentStore
 from nilcenter.jobs import JobRegistry, JobState, JobTransitionError, ResearchJob
@@ -24,6 +25,7 @@ __all__ = [
     "NIL",
     "ArtifactSpec",
     "ArtifactStore",
+    "CalculationError",
     "CapabilityBroker",
     "CapabilityGrant",
     "Dependency",
@@ -54,6 +56,7 @@ __all__ = [
     "WorkerRequest",
     "WorkerResult",
     "WorkerStatus",
+    "calculate",
     "WorkspaceError",
     "WorkspaceManager",
 ]
