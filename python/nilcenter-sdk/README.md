@@ -149,10 +149,11 @@ print(describe(table.numeric_column("value")))
 
 Analyze a loaded CSV table in one call: descriptive summaries for selected numeric columns, pairwise correlations (undefined correlations are returned as `None`), and an optional linear regression fit.
 
-
 ```python
 from nilcenter import DataTable, analyze
 
 sample = DataTable.from_csv("x,y\\n1,3\\n2,5\\n3,7\\n")
-report = analyze(sample, regression_pair=(\"x\", \"y\"))
-print(report[\"summaries\"][\"x\"])\nprint(report[\"regression\"])\n```
+report = analyze(sample, regression_pair=("x", "y"))
+print(report["summaries"]["x"])
+print(report["regression"])
+```
