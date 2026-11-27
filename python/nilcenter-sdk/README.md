@@ -64,6 +64,19 @@ The experiment CLI stores metadata by default in
 `~/.local/share/nilcenter/experiments.json`. Use the `--store` option to
 select a different local path.
 
+## Safe mathematical expressions
+
+The SDK provides a bounded expression evaluator for quick numerical work. It accepts arithmetic operators, `pi` and `e`, and a small set of math functions (`sqrt`, `sin`, `cos`, `tan`, `log`, `log10`, `exp`, `abs`, `floor`, `ceil`). It parses expressions as an AST and does not execute Python code. Expression length, AST node count, nesting, exponent magnitude, and finite results are checked.
+
+
+```python
+from nilcenter import calculate
+
+print(calculate("sqrt(81) + sin(pi / 2)"))  # 10.0
+```
+
+This is a small calculator primitive, not a symbolic algebra engine or arbitrary Python execution environment.
+
 ## Current limitations
 
 - No tool installation or arbitrary tool execution.
