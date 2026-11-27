@@ -1,4 +1,4 @@
-"""Command-line interface for NILcenter laboratory discovery."""
+"""Command-line interface for NILcenter discovery and local research records."""
 
 from __future__ import annotations
 
@@ -8,14 +8,14 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
-from nilcenter import NIL
+from nilcenter import NIL, ExperimentStore
 from nilcenter.manifest import ToolManifest
 
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="nilcenter",
-        description="Discover NILcenter.ai research laboratories and validate tool manifests.",
+        description="Discover NILcenter laboratories and manage local experiment metadata.",
     )
     commands = parser.add_subparsers(dest="command", required=True)
 
@@ -29,9 +29,28 @@ def _build_parser() -> argparse.ArgumentParser:
     tool_commands = tools.add_subparsers(dest="tool_command", required=True)
     listing = tool_commands.add_parser("list", help="List registered tool descriptors")
     listing.add_argument("--lab", dest="laboratory")
-
     validate = tool_commands.add_parser("validate", help="Validate a JSON tool manifest")
     validate.add_argument("manifest", type=Path)
+
+    experiments = commands.add_parser("experiments", help="Manage local experiment records")
+    experiments.add_argument(
+        "--store",
+        type=Path,
+        default=Path.home() / ".local" / "share" / "nilcenter" / "experiments.json",
+        help="Path to the local experiment JSON store",
+    )
+    experiment_commands = experiments.add_subparsers(
+        dest="experiment_command", required=True
+    )
+    create = experiment_commands.add_parser("create", help="Create a draft experiment")
+    create.add_argument("laboratory")
+    create.add_argument("name")
+    create.add_argument("--hypothesis", default="")
+    create.add_argument("--tag", action="append", default=[])
+    experiment_commands.add_parser("list", help="List saved experiments")
+    status = experiment_commands.add_parser("status", help="Update an experiment lifecycle status")
+    status.add_argument("experiment_id")
+    status.add_argument("value", choices=("draft", "planned", "running", "succeeded", "failed", "cancelled"))
     return parser
 
 
@@ -68,6 +87,38 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 2
         print(f"Valid manifest: {manifest.id} ({manifest.version})")
         return 0
+
+    if args.command == "experiments":
+        store = ExperimentStore(args.store)
+        if args.experiment_command == "create":
+            try:
+                laboratory = nil.labs.get(args.laboratory)
+                experiment = store.create(
+                    args.name,
+                    laboratory.id,
+                    hypothesis=args.hypothesis,
+                    tags=tuple(args.tag),
+                )
+            except (KeyError, OSError, TypeError, ValueError) as exc:
+                print(f"Experiment creation failed: {exc}", file=sys.stderr)
+                return 2
+            print(f"Created {experiment.id}: {experiment.name} [{experiment.status}]")
+            return 0
+        if args.experiment_command == "list":
+            for experiment in store.list():
+                print(
+                    f"{experiment.id}  {experiment.laboratory:20} "
+                    f"{experiment.status:10} {experiment.name}"
+                )
+            return 0
+        if args.experiment_command == "status":
+            try:
+                experiment = store.set_status(args.experiment_id, args.value)
+            except (KeyError, OSError, ValueError) as exc:
+                print(f"Experiment status update failed: {exc}", file=sys.stderr)
+                return 2
+            print(f"Updated {experiment.id}: {experiment.status}")
+            return 0
 
     parser.error("Unsupported command")
     return 2
