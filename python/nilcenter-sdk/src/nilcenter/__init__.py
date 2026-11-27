@@ -7,6 +7,7 @@ from nilcenter.permissions import CapabilityBroker, CapabilityGrant
 from nilcenter.registry import ToolRegistry
 from nilcenter.runtime_policy import ExecutionRequest, ResourceLimits, RuntimePolicy
 from nilcenter.sqlite_experiments import ExperimentEvent, ExperimentRecord, SQLiteExperimentStore
+from nilcenter.workspaces import WorkspaceError, WorkspaceManager
 
 __all__ = [
     "NIL",
@@ -26,4 +27,6 @@ __all__ = [
     "ToolDescriptor",
     "ToolRegistry",
     "ToolResult",
+    "WorkspaceError",
+    "WorkspaceManager",
 ]
