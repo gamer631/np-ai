@@ -25,8 +25,8 @@ function parseCSV(text){
     }
     if(afterQuote){
       if(ch===',' ){row.push(cell);cell='';afterQuote=false;}
-      else if(ch==='\\n'||ch==='\\r'){if(ch==='\\r'&&text[i+1]==='\\n')i++;row.push(cell);cell='';afterQuote=false;if(row.some(v=>v.trim()!==''))rows.push(row);row=[];}
-      else if(ch===' '||ch==='\\t'){/* tolerate whitespace after closing quote */}
+      else if(ch==='\n'||ch==='\r'){if(ch==='\r'&&text[i+1]==='\n')i++;row.push(cell);cell='';afterQuote=false;if(row.some(v=>v.trim()!==''))rows.push(row);row=[];}
+      else if(ch===' '||ch==='\t'){/* tolerate whitespace after closing quote */}
       else throw Error('Unexpected character after a quoted CSV cell.');
       continue;
     }
@@ -34,7 +34,7 @@ function parseCSV(text){
       if(cell.length!==0)throw Error('Quote found inside an unquoted CSV cell.');
       quoted=true;
     }else if(ch===','){row.push(cell);cell='';}
-    else if(ch==='\\n'||ch==='\\r'){if(ch==='\\r'&&text[i+1]==='\\n')i++;row.push(cell);cell='';if(row.some(v=>v.trim()!==''))rows.push(row);row=[];}
+    else if(ch==='\n'||ch==='\r'){if(ch==='\r'&&text[i+1]==='\n')i++;row.push(cell);cell='';if(row.some(v=>v.trim()!==''))rows.push(row);row=[];}
     else cell+=ch;
   }
   if(quoted)throw Error('CSV contains an unfinished quoted cell.');
