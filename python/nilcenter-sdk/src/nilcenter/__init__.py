@@ -1,6 +1,7 @@
 """Public Python API for the NILcenter.ai research platform."""
 
 from nilcenter.artifact_store import ArtifactStore, StoredArtifact
+from nilcenter.datasets import DataTable, DatasetError
 from nilcenter.math_engine import CalculationError, calculate
 from nilcenter.statistics import StatisticsError, correlation, describe, histogram, linear_regression
 from nilcenter.client import NIL, LabCollection
@@ -29,6 +30,8 @@ __all__ = [
     "CalculationError",
     "CapabilityBroker",
     "CapabilityGrant",
+    "DataTable",
+    "DatasetError",
     "Dependency",
     "ExecutionRequest",
     "Experiment",
