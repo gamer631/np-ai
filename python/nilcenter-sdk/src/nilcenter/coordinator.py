@@ -51,7 +51,7 @@ class WorkerCoordinator:
                 self._handles[job.id] = handle
             status = self.backend.poll(handle)
             return self._apply_status(job.id, status, detail="Initial backend status")
-        except Exception as exc:  # noqa: BLE001  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001
             current = self.jobs.get(job.id)
             if not self.jobs.is_terminal(current.state):
                 return self.jobs.transition(job.id, JobState.FAILED, detail=f"Backend error: {type(exc).__name__}")
@@ -65,7 +65,7 @@ class WorkerCoordinator:
         try:
             status = self.backend.poll(self._get_handle(job_id))
             return self._apply_status(job_id, status, detail="Backend poll")
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             current = self.jobs.get(job_id)
             if not self.jobs.is_terminal(current.state):
                 return self.jobs.transition(job_id, JobState.FAILED, detail=f"Poll error: {type(exc).__name__}")
@@ -87,7 +87,7 @@ class WorkerCoordinator:
             if status in _TERMINAL_MAP:
                 return self.jobs.transition(job_id, _TERMINAL_MAP[status], detail=f"Cancel response: {status.value}")
             return current
-        except Exception:
+        except Exception:  # noqa: BLE001
             return self.jobs.get(job_id)
 
     def collect(self, job_id: str) -> WorkerResult:
