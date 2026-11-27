@@ -34,7 +34,7 @@ class WorkerCoordinator:
         job = self.jobs.create(request.experiment_id, job_id=request.job_id)
         try:
             self.workspaces.create(request.workspace_id)
-        except Exception:  # noqa: BLE001
+        except Exception:
             self.jobs.transition(job.id, JobState.FAILED, detail="Workspace preparation failed")
             raise
         return job
@@ -51,7 +51,7 @@ class WorkerCoordinator:
                 self._handles[job.id] = handle
             status = self.backend.poll(handle)
             return self._apply_status(job.id, status, detail="Initial backend status")
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001  # noqa: BLE001
             current = self.jobs.get(job.id)
             if not self.jobs.is_terminal(current.state):
                 return self.jobs.transition(job.id, JobState.FAILED, detail=f"Backend error: {type(exc).__name__}")
