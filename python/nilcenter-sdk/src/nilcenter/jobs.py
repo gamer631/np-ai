@@ -34,8 +34,12 @@ _TERMINAL = frozenset(
 )
 _ALLOWED: dict[JobState, frozenset[JobState]] = {
     JobState.QUEUED: frozenset({JobState.STARTING, JobState.CANCELLED, JobState.FAILED}),
-    JobState.STARTING: frozenset({JobState.RUNNING, JobState.CANCELLING, JobState.FAILED, JobState.TIMED_OUT}),
-    JobState.RUNNING: frozenset({JobState.CANCELLING, JobState.SUCCEEDED, JobState.FAILED, JobState.TIMED_OUT}),
+    JobState.STARTING: frozenset(
+        {JobState.RUNNING, JobState.CANCELLING, JobState.FAILED, JobState.TIMED_OUT}
+    ),
+    JobState.RUNNING: frozenset(
+        {JobState.CANCELLING, JobState.SUCCEEDED, JobState.FAILED, JobState.TIMED_OUT}
+    ),
     JobState.CANCELLING: frozenset({JobState.CANCELLED, JobState.FAILED, JobState.TIMED_OUT}),
     JobState.SUCCEEDED: frozenset(),
     JobState.FAILED: frozenset(),
@@ -103,7 +107,7 @@ class JobRegistry:
     def transition(self, job_id: str, state: JobState, *, detail: str = "") -> ResearchJob:
         """Apply a permitted transition and update the timestamp."""
         if not isinstance(state, JobState):
-            raise ValueError("state must be a JobState")
+            raise TypeError("state must be a JobState")
         with self._lock:
             current = self.get(job_id)
             if state not in _ALLOWED[current.state]:
