@@ -94,3 +94,9 @@ print(store.events(run.id))
 
 SQLite stores experiment metadata and lifecycle events in transactions. This is
 still a local prototype; it does not encrypt data or provide tamper-proof audit.
+
+
+## Runtime policy contract (validation only)
+
+The SDK exposes `ExecutionRequest`, `ResourceLimits`, and `RuntimePolicy` as a fail-closed request validation contract for future isolated execution. Network access and capabilities are denied unless explicitly allowed by policy, and source size and resource limit values are validated. **This module does not execute code, isolate processes, enforce OS limits, or constitute a sandbox.**
+
