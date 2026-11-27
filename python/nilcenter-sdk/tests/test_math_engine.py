@@ -1,5 +1,4 @@
 """Tests for the bounded math expression engine."""
-import math
 import pytest
 
 from nilcenter.math_engine import CalculationError, calculate
