@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import os
 import shutil
-import stat
 from pathlib import Path
 from uuid import UUID, uuid4
 
