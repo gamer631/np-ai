@@ -76,3 +76,21 @@ select a different local path.
 
 These restrictions are intentional. Untrusted execution requires a separately
 reviewed OS broker, disposable sandbox, resource limits and audit implementation.
+
+## Transactional experiment store
+
+For a transactional local database with lifecycle event history, use
+`SQLiteExperimentStore`:
+
+```python
+from pathlib import Path
+from nilcenter import SQLiteExperimentStore
+
+store = SQLiteExperimentStore(Path.home() / ".local/share/nilcenter/experiments.db")
+run = store.create("Baseline", "mathematics", metadata={"seed": 42})
+store.set_status(run.id, "planned")
+print(store.events(run.id))
+```
+
+SQLite stores experiment metadata and lifecycle events in transactions. This is
+still a local prototype; it does not encrypt data or provide tamper-proof audit.
