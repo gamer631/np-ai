@@ -129,3 +129,17 @@ still a local prototype; it does not encrypt data or provide tamper-proof audit.
 
 The SDK exposes `ExecutionRequest`, `ResourceLimits`, and `RuntimePolicy` as a fail-closed request validation contract for future isolated execution. Network access and capabilities are denied unless explicitly allowed by policy, and source size and resource limit values are validated. **This module does not execute code, isolate processes, enforce OS limits, or constitute a sandbox.**
 
+
+
+## CSV datasets
+
+Load bounded CSV text into a validated immutable table, inspect string columns, and convert numeric columns for analysis. Input is limited to 2 MB, 100,000 rows, and 256 columns; missing cells and duplicate headers are rejected.
+
+
+```python
+from nilcenter import DataTable, describe
+
+table = DataTable.from_csv("time,value\\n0,1.2\\n1,2.4\\n2,3.1\\n")
+print(table.columns, table.row_count)
+print(describe(table.numeric_column("value")))
+```
