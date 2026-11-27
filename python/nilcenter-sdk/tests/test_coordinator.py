@@ -76,3 +76,24 @@ def test_collect_requires_terminal_job(tmp_path: object) -> None:
     job = c.launch(req())
     with pytest.raises(ValueError):
         c.collect(job.id)
+
+def test_immediate_success_is_transitioned_legally(tmp_path: object) -> None:
+    backend = StubBackend(status=WorkerStatus.SUCCEEDED)
+    job = coordinator(tmp_path, backend).launch(req())
+    assert job.state == JobState.SUCCEEDED
+
+
+def test_initial_pending_keeps_starting_state(tmp_path: object) -> None:
+    backend = StubBackend(status=WorkerStatus.PENDING)
+    job = coordinator(tmp_path, backend).launch(req())
+    assert job.state == JobState.STARTING
+
+
+def test_poll_failure_marks_job_failed(tmp_path: object) -> None:
+    class BrokenPoll(StubBackend):
+        def poll(self, handle: str) -> WorkerStatus:
+            raise RuntimeError("poll error")
+    c = coordinator(tmp_path, BrokenPoll())
+    job = c.launch(req())
+    assert job.state == JobState.FAILED
+    assert "Poll error" in job.detail
