@@ -23,7 +23,9 @@ class WorkerStatus(StrEnum):
     CANCELLED = "cancelled"
 
 
-_TERMINAL = frozenset({WorkerStatus.SUCCEEDED, WorkerStatus.FAILED, WorkerStatus.TIMED_OUT, WorkerStatus.CANCELLED})
+_TERMINAL = frozenset(
+    {WorkerStatus.SUCCEEDED, WorkerStatus.FAILED, WorkerStatus.TIMED_OUT, WorkerStatus.CANCELLED}
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -36,7 +38,9 @@ class ArtifactSpec:
 
     def validate(self, *, max_bytes: int = 5_000_000) -> None:
         path = PurePosixPath(self.path)
-        if not self.path or not path.parts or path.is_absolute() or any(part in ("", ".", "..") for part in path.parts):
+        unsafe = not self.path or not path.parts or path.is_absolute()
+        unsafe = unsafe or any(part in ("", ".", "..") for part in path.parts)
+        if unsafe:
             raise ValueError("artifact path must be a safe relative path")
         if self.size_bytes < 0 or self.size_bytes > max_bytes:
             raise ValueError("artifact size exceeds limit")
@@ -58,7 +62,12 @@ class WorkerRequest:
     network_access: bool = False
 
     def validate(self) -> None:
-        for name, value in (("job_id", self.job_id), ("experiment_id", self.experiment_id), ("workspace_id", self.workspace_id)):
+        required = (
+            ("job_id", self.job_id),
+            ("experiment_id", self.experiment_id),
+            ("workspace_id", self.workspace_id),
+        )
+        for name, value in required:
             if not value.strip():
                 raise ValueError(f"{name} is required")
         try:
