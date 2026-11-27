@@ -9,7 +9,7 @@ import hashlib
 import json
 import re
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
@@ -70,9 +70,9 @@ class RunManifest:
     schema_version: int = 1
 
     @classmethod
-    def create(cls, experiment_id: str, job_id: str, **kwargs: Any) -> "RunManifest":
+    def create(cls, experiment_id: str, job_id: str, **kwargs: Any) -> RunManifest:
         """Construct a manifest with a UTC timestamp."""
-        return cls(experiment_id, job_id, datetime.now(timezone.utc).isoformat(), **kwargs)
+        return cls(experiment_id, job_id, datetime.now(UTC).isoformat(), **kwargs)
 
     def validate(self) -> None:
         if not self.experiment_id.strip():
@@ -84,7 +84,7 @@ class RunManifest:
         if self.schema_version != 1:
             raise ValueError("unsupported manifest schema version")
         try:
-            datetime.fromisoformat(self.created_at.replace("Z", "+00:00"))
+            datetime.fromisoformat(self.created_at)
         except ValueError as exc:
             raise ValueError("created_at must be ISO-8601") from exc
         if self.random_seed is not None and self.random_seed < 0:
