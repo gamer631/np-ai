@@ -44,7 +44,7 @@ class WorkerCoordinator:
     def launch(self, request: WorkerRequest) -> ResearchJob:
         """Prepare and submit request to injected backend; fail job on backend error."""
         job = self.prepare(request)
-        starting = self.jobs.transition(job.id, JobState.STARTING)
+        self.jobs.transition(job.id, JobState.STARTING)
         try:
             handle = self.backend.launch(request)
             with self._lock:
@@ -52,9 +52,15 @@ class WorkerCoordinator:
             status = self.backend.poll(handle)
             if status == WorkerStatus.RUNNING:
                 return self.jobs.transition(job.id, JobState.RUNNING)
+            if status == WorkerStatus.SUCCEEDED:
+                running = self.jobs.transition(job.id, JobState.RUNNING, detail="Backend completed immediately")
+                return self.jobs.transition(running.id, JobState.SUCCEEDED, detail="Backend returned succeeded")
+            if status == WorkerStatus.CANCELLED:
+                cancelling = self.jobs.transition(job.id, JobState.CANCELLING, detail="Backend cancelled immediately")
+                return self.jobs.transition(cancelling.id, JobState.CANCELLED, detail="Backend returned cancelled")
             if status in _TO_JOB:
                 return self.jobs.transition(job.id, _TO_JOB[status], detail=f"Backend returned {status.value}")
-            return starting
+            return self.jobs.get(job.id)
         except Exception as exc:
             return self.jobs.transition(job.id, JobState.FAILED, detail=f"Backend launch failed: {type(exc).__name__}")
 
@@ -63,12 +69,17 @@ class WorkerCoordinator:
         current = self.jobs.get(job_id)
         if self.jobs.is_terminal(current.state):
             return current
-        handle = self._get_handle(job_id)
-        status = self.backend.poll(handle)
+        status = self.backend.poll(self._get_handle(job_id))
         if status == WorkerStatus.RUNNING and current.state == JobState.STARTING:
             return self.jobs.transition(job_id, JobState.RUNNING)
         target = _TO_JOB.get(status)
         if target is not None:
+            if current.state == JobState.STARTING and status == WorkerStatus.SUCCEEDED:
+                running = self.jobs.transition(job_id, JobState.RUNNING, detail="Backend completed")
+                return self.jobs.transition(running.id, JobState.SUCCEEDED, detail="Backend completed: succeeded")
+            if current.state == JobState.STARTING and status == WorkerStatus.CANCELLED:
+                cancelling = self.jobs.transition(job_id, JobState.CANCELLING, detail="Backend cancelled")
+                return self.jobs.transition(cancelling.id, JobState.CANCELLED, detail="Backend completed: cancelled")
             if current.state == JobState.CANCELLING and status != WorkerStatus.CANCELLED:
                 return self.jobs.transition(job_id, JobState.FAILED, detail=f"Unexpected terminal backend status: {status.value}")
             return self.jobs.transition(job_id, target, detail=f"Backend completed: {status.value}")
@@ -83,8 +94,7 @@ class WorkerCoordinator:
             raise ValueError(f"Cannot cancel terminal job: {current.state.value}")
         if current.state != JobState.CANCELLING:
             current = self.jobs.request_cancel(job_id)
-        handle = self._get_handle(job_id)
-        status = self.backend.cancel(handle)
+        status = self.backend.cancel(self._get_handle(job_id))
         if status == WorkerStatus.CANCELLED:
             return self.jobs.transition(job_id, JobState.CANCELLED, detail="Backend confirmed cancellation")
         if status in (WorkerStatus.FAILED, WorkerStatus.TIMED_OUT):
