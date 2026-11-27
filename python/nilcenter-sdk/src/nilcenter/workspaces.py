@@ -49,8 +49,6 @@ class WorkspaceManager:
             raise WorkspaceError("run_id must be a UUID") from exc
         if not relative_path or Path(relative_path).is_absolute():
             raise WorkspaceError("Path must be a non-empty relative path")
-        if "\\ " in relative_path:
-            raise WorkspaceError("Invalid path")
         parts = Path(relative_path).parts
         if not parts or any(part in ("", ".", "..") for part in parts):
             raise WorkspaceError("Path traversal is not allowed")
