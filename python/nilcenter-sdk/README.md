@@ -77,6 +77,22 @@ print(calculate("sqrt(81) + sin(pi / 2)"))  # 10.0
 
 This is a small calculator primitive, not a symbolic algebra engine or arbitrary Python execution environment.
 
+## Statistical analysis
+
+The SDK includes bounded descriptive statistics, Pearson correlation, simple linear regression, and equal-width histograms without third-party dependencies. Input data is limited to 100,000 values per series and histogram bins to 512.
+
+```python
+from nilcenter import describe, correlation, linear_regression, histogram
+
+print(describe([2, 4, 6, 8]))
+print(correlation([1, 2, 3], [2, 4, 6]))
+print(linear_regression([1, 2, 3], [3, 5, 7]))
+print(histogram([1, 2, 3, 4], bins=4))
+```
+
+These are baseline numeric utilities, not a substitute for a full scientific library.
+
+
 ## Current limitations
 
 - No tool installation or arbitrary tool execution.

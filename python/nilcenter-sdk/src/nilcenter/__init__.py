@@ -2,6 +2,7 @@
 
 from nilcenter.artifact_store import ArtifactStore, StoredArtifact
 from nilcenter.math_engine import CalculationError, calculate
+from nilcenter.statistics import StatisticsError, correlation, describe, histogram, linear_regression
 from nilcenter.client import NIL, LabCollection
 from nilcenter.experiments import Experiment, ExperimentStore
 from nilcenter.jobs import JobRegistry, JobState, JobTransitionError, ResearchJob
@@ -49,6 +50,7 @@ __all__ = [
     "RuntimePolicy",
     "SQLiteExperimentStore",
     "StoredArtifact",
+    "StatisticsError",
     "ToolDescriptor",
     "ToolRegistry",
     "ToolResult",
@@ -57,6 +59,10 @@ __all__ = [
     "WorkerResult",
     "WorkerStatus",
     "calculate",
+    "correlation",
+    "describe",
+    "histogram",
+    "linear_regression",
     "WorkspaceError",
     "WorkspaceManager",
 ]
