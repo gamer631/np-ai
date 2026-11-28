@@ -98,3 +98,28 @@ def test_dataset_persists_in_sqlite():
     dataset_id = upload.json()["id"]
     assert client.get(f"/datasets/{dataset_id}").status_code == 200
     assert client.post(f"/datasets/{dataset_id}/analyze").json()["numeric_columns"]["value"]["mean"] == 7
+
+
+def test_report_requires_completed_run_and_contains_provenance():
+    dataset = client.post("/datasets", content=b"measure\\n2\\n4\\n").json()
+    experiment = client.post("/experiments", json={
+        "name": "Report test", "hypothesis": "Mean should be three",
+        "dataset_id": dataset["id"]
+    }).json()
+    report_url = f"/experiments/{experiment['id']}/report"
+    assert client.get(report_url).status_code == 409
+    assert client.post(f"/experiments/{experiment['id']}/run").status_code == 200
+    report = client.get(report_url)
+    assert report.status_code == 200
+    markdown = report.json()["report_markdown"]
+    assert "# NIL Research Report" in markdown
+    assert dataset["sha256"] in markdown
+    assert "| measure | 2 | 3 | 2 | 4 |" in markdown
+
+
+def test_experiment_rejects_blank_trimmed_fields():
+    dataset = client.post("/datasets", content=b"x\\n1\\n").json()
+    response = client.post("/experiments", json={
+        "name": "   ", "hypothesis": "  ", "dataset_id": dataset["id"]
+    })
+    assert response.status_code == 422
