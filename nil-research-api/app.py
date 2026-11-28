@@ -262,7 +262,8 @@ def get_experiment_report(experiment_id: str) -> dict[str, Any]:
     if stats:
         lines.extend(["| Column | Count | Mean | Min | Max |", "|---|---:|---:|---:|---:|"])
         for column, values in stats.items():
-            lines.append(f"| {column} | {values['count']} | {values['mean']:.6g} | {values['min']:.6g} | {values['max']:.6g} |")
+            safe_column = str(column).replace("|", "\\|").replace("\\n", " ")
+            lines.append(f"| {safe_column} | {values['count']} | {values['mean']:.6g} | {values['min']:.6g} | {values['max']:.6g} |")
     else:
         lines.append("No numeric columns were available for analysis.")
     lines.extend([
