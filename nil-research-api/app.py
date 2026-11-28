@@ -54,7 +54,7 @@ def init_db() -> None:
             rows_json TEXT NOT NULL,
             row_count INTEGER NOT NULL,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-        )""".replace("PRIMARY PRIMARY", "PRIMARY"))
+        )"""))
         db.execute("""CREATE TABLE IF NOT EXISTS experiments (
             id TEXT PRIMARY PRIMARY KEY,
             name TEXT NOT NULL,
