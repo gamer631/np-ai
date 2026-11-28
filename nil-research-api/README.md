@@ -33,7 +33,7 @@ API docs: http://127.0.0.1:8000/docs
 - CSV defaults: 2 MB, 50,000 data rows, 200 columns. Set `NIL_MAX_UPLOAD_BYTES`, `NIL_MAX_ROWS`, `NIL_MAX_COLUMNS` to adjust limits.
 - SHA-256 is calculated on the exact uploaded CSV bytes and returned with dataset metadata and experiment result provenance.
 - Only the built-in descriptive-statistics method is runnable. Other method identifiers return 400. This is not a Python execution sandbox.
-- Local development only. Do not expose to the network without authentication, authorization, dataset isolation, request-size enforcement at the proxy, rate limits, audit trail, deployment hardening, and backup policy.
+- Local development only. CORS permits the Workbench dev server at localhost/127.0.0.1:5500. Do not expose to the network without authentication, authorization, dataset isolation, request-size enforcement at the proxy, rate limits, audit trail, deployment hardening, and backup policy.
 
 ## Tests
 
