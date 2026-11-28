@@ -49,22 +49,21 @@ def connect_db() -> Iterator[sqlite3.Connection]:
 def init_db() -> None:
     with connect_db() as db:
         db.execute("""CREATE TABLE IF NOT EXISTS datasets (
-            id TEXT PRIMARY PRIMARY KEY,
+            id TEXT PRIMARY KEY,
             columns_json TEXT NOT NULL,
             rows_json TEXT NOT NULL,
             row_count INTEGER NOT NULL,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-        )"""))
+        )""")
         db.execute("""CREATE TABLE IF NOT EXISTS experiments (
-            id TEXT PRIMARY PRIMARY KEY,
+            id TEXT PRIMARY KEY,
             name TEXT NOT NULL,
             hypothesis TEXT NOT NULL,
             dataset_id TEXT NOT NULL REFERENCES datasets(id) ON DELETE CASCADE,
             method TEXT NOT NULL,
             status TEXT NOT NULL,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-        )""".replace("PRIMARY PRIMARY", "PRIMARY"))
-
+        )""")
 
 @app.on_event("startup")
 def startup() -> None:
