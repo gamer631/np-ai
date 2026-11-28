@@ -3,6 +3,33 @@ let tableData=null, datasetName='Sample dataset';
 let apiBase='http://127.0.0.1:8000', apiReady=false, serverDatasetId=null, lastCsvText=null, reportMarkdown=null;
 function setApiStatus(message,connected=false){$('apiStatus').textContent=message;$('apiStatus').className=connected?'api-status connected':'api-status';}
 function updateRunButton(){$('runExperiment').disabled=!(apiReady&&serverDatasetId);}
+
+async function loadHistory(){
+  const list=$('historyList');
+  if(!apiReady){list.textContent='Connect to the API to view saved experiments.';return;}
+  list.textContent='Loading saved experiments…';
+  try{
+    const response=await fetch(apiBase+'/experiments?limit=20');
+    if(!response.ok)throw new Error('History request failed '+response.status);
+    const data=await response.json();
+    list.replaceChildren();
+    if(!data.experiments.length){list.textContent='No experiments saved yet.';return;}
+    data.experiments.forEach(item=>{
+      const card=document.createElement('div');card.className='history-card';
+      const title=document.createElement('strong');title.textContent=item.name;
+      const status=document.createElement('span');status.className='history-status '+item.status;status.textContent=item.status;
+      const meta=document.createElement('small');meta.textContent='Rows: '+item.row_count+' · '+item.method+' · '+(item.completed_at||item.created_at);
+      const details=document.createElement('p');details.textContent=item.hypothesis;
+      const reportButton=document.createElement('button');reportButton.className='text-button';reportButton.textContent='View report';reportButton.disabled=item.status!=='completed';
+      reportButton.addEventListener('click',async()=>{
+        try{const report=await fetch(apiBase+'/experiments/'+item.id+'/report');if(!report.ok)throw new Error('Report request failed '+report.status);const result=await report.json();reportMarkdown=result.report_markdown;$('reportPreview').textContent=reportMarkdown;$('reportPreview').classList.remove('hidden');$('downloadReport').disabled=false;$('experimentStatus').textContent='Loaded saved report for '+item.name;}
+        catch(error){$('experimentStatus').textContent='Could not load report: '+error.message;}
+      });
+      const top=document.createElement('div');top.className='history-card-top';top.append(title,status);card.append(top,meta,details,reportButton);list.append(card);
+    });
+  }catch(error){list.textContent='Could not load experiment history: '+error.message;}
+}
+
 async function uploadDatasetToApi(text){
   serverDatasetId=null;updateRunButton();
   try{const res=await fetch(apiBase+'/datasets',{method:'POST',headers:{'Content-Type':'text/csv'},body:text});if(!res.ok)throw new Error((await res.text()).slice(0,180));const data=await res.json();serverDatasetId=data.id;await fetch(apiBase+'/datasets/'+serverDatasetId+'/analyze',{method:'POST'});setApiStatus('Connected · dataset saved to local research API',true);updateRunButton();}
@@ -68,7 +95,7 @@ $('connectApi').addEventListener('click',async()=>{
   apiBase=$('apiBase').value.trim().replace(/\/+$/,'');
   if(!apiBase){setApiStatus('Enter a valid API address.');return;}
   setApiStatus('Connecting…');
-  try{const response=await fetch(apiBase+'/health');if(!response.ok)throw new Error('Health check returned '+response.status);const health=await response.json();apiReady=true;setApiStatus('Connected · '+health.service+' v'+health.version,true);if(lastCsvText)await uploadDatasetToApi(lastCsvText);else updateRunButton();}
+  try{const response=await fetch(apiBase+'/health');if(!response.ok)throw new Error('Health check returned '+response.status);const health=await response.json();apiReady=true;setApiStatus('Connected · '+health.service+' v'+health.version,true);await loadHistory();if(lastCsvText)await uploadDatasetToApi(lastCsvText);else updateRunButton();}
   catch(error){apiReady=false;serverDatasetId=null;setApiStatus('Connection failed: '+error.message);updateRunButton();}
 });
 $('runExperiment').addEventListener('click',async()=>{
@@ -78,6 +105,7 @@ $('runExperiment').addEventListener('click',async()=>{
   $('runExperiment').disabled=true;$('downloadReport').disabled=true;$('experimentStatus').textContent='Creating and running experiment…';reportMarkdown=null;
   try{const create=await fetch(apiBase+'/experiments',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,hypothesis,dataset_id:serverDatasetId,method:'descriptive-statistics'})});if(!create.ok)throw new Error('Create experiment failed: '+(await create.text()).slice(0,160));const experiment=await create.json();const run=await fetch(apiBase+'/experiments/'+experiment.id+'/run',{method:'POST'});if(!run.ok)throw new Error('Run failed: '+(await run.text()).slice(0,160));const report=await fetch(apiBase+'/experiments/'+experiment.id+'/report');if(!report.ok)throw new Error('Report failed: '+(await report.text()).slice(0,160));const reportData=await report.json();reportMarkdown=reportData.report_markdown;$('reportPreview').textContent=reportMarkdown;$('reportPreview').classList.remove('hidden');$('downloadReport').disabled=false;$('experimentStatus').textContent='Completed · experiment '+experiment.id+' · report ready';}
   catch(error){$('experimentStatus').textContent='Experiment error: '+error.message;}
-  finally{updateRunButton();}
+  finally{updateRunButton();await loadHistory();}
 });
+$('refreshHistory').addEventListener('click',loadHistory);
 $('downloadReport').addEventListener('click',()=>{if(!reportMarkdown)return;const blob=new Blob([reportMarkdown],{type:'text/markdown;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='nil-research-report.md';a.click();URL.revokeObjectURL(url);});
