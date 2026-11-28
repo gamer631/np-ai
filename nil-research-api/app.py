@@ -52,7 +52,7 @@ def init_db() -> None:
             row_count INTEGER NOT NULL,
             sha256 TEXT NOT NULL,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-        )"""))
+        )""")
         db.execute("""CREATE TABLE IF NOT EXISTS experiments (
             id TEXT PRIMARY KEY,
             name TEXT NOT NULL,
@@ -61,13 +61,12 @@ def init_db() -> None:
             method TEXT NOT NULL,
             status TEXT NOT NULL,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-        )"""))
+        )""")
         db.execute("""CREATE TABLE IF NOT EXISTS experiment_results (
             experiment_id TEXT PRIMARY PRIMARY KEY REFERENCES experiments(id) ON DELETE CASCADE,
             result_json TEXT NOT NULL,
             completed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-        )"""))
-
+        )""".replace("PRIMARY PRIMARY", "PRIMARY"))
 
 @app.on_event("startup")
 def startup() -> None:
