@@ -18,9 +18,11 @@ API docs: http://127.0.0.1:8000/docs
 
 - `GET /health`
 - `POST /datasets` — CSV upload; returns SHA-256 content fingerprint
+- `GET /datasets` — list recent datasets with fingerprints
 - `GET /datasets/{id}` — metadata, fingerprint, first 20 rows
 - `POST /datasets/{id}/analyze` — descriptive statistics for numeric columns
 - `POST /experiments` — create a hypothesis experiment (queued metadata)
+- `GET /experiments` — list recent experiments with status and dataset provenance
 - `GET /experiments/{id}` — experiment status
 - `POST /experiments/{id}/run` — run the allowlisted descriptive-statistics method and persist results
 - `GET /experiments/{id}/result` — retrieve stored result and timestamp
