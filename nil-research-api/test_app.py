@@ -129,3 +129,26 @@ def test_experiment_rejects_blank_trimmed_fields():
         "name": "   ", "hypothesis": "  ", "dataset_id": dataset["id"]
     })
     assert response.status_code == 422
+
+
+def test_dataset_list_returns_metadata_and_sha():
+    dataset = client.post("/datasets", content=b"x\n1\n").json()
+    listed = client.get("/datasets?limit=10").json()["datasets"]
+    assert any(item["id"] == dataset["id"] and item["sha256"] == dataset["sha256"] for item in listed)
+    assert client.get("/datasets?limit=0").status_code == 200
+
+
+def test_experiment_list_includes_status_and_dataset_provenance():
+    dataset = client.post("/datasets", content=b"value\n4\n").json()
+    experiment = client.post("/experiments", json={
+        "name": "List test", "hypothesis": "Value is four", "dataset_id": dataset["id"]
+    }).json()
+    listing = client.get("/experiments").json()["experiments"]
+    entry = next(item for item in listing if item["id"] == experiment["id"])
+    assert entry["status"] == "queued"
+    assert entry["sha256"] == dataset["sha256"]
+    assert client.post(f"/experiments/{experiment['id']}/run").status_code == 200
+    refreshed = client.get("/experiments").json()["experiments"]
+    entry = next(item for item in refreshed if item["id"] == experiment["id"])
+    assert entry["status"] == "completed"
+    assert entry["completed_at"] is not None
