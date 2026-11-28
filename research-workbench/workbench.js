@@ -1,5 +1,13 @@
 const $=id=>document.getElementById(id);
 let tableData=null, datasetName='Sample dataset';
+let apiBase='http://127.0.0.1:8000', apiReady=false, serverDatasetId=null, lastCsvText=null, reportMarkdown=null;
+function setApiStatus(message,connected=false){$('apiStatus').textContent=message;$('apiStatus').className=connected?'api-status connected':'api-status';}
+function updateRunButton(){$('runExperiment').disabled=!(apiReady&&serverDatasetId);}
+async function uploadDatasetToApi(text){
+  serverDatasetId=null;updateRunButton();
+  try{const res=await fetch(apiBase+'/datasets',{method:'POST',headers:{'Content-Type':'text/csv'},body:text});if(!res.ok)throw new Error((await res.text()).slice(0,180));const data=await res.json();serverDatasetId=data.id;await fetch(apiBase+'/datasets/'+serverDatasetId+'/analyze',{method:'POST'});setApiStatus('Connected · dataset saved to local research API',true);updateRunButton();}
+  catch(err){setApiStatus('Connected, but dataset upload failed: '+err.message);updateRunButton();}
+}
 const sample=`month,temperature,rainfall
 Jan,12,4
 Feb,14,8
@@ -46,7 +54,7 @@ function parseCSV(text){
   return {headers,body};
 }
 function numericCol(name){const idx=tableData.headers.indexOf(name);if(idx<0)return null;const vals=tableData.body.map(r=>r[idx].trim()===''?NaN:Number(r[idx]));if(vals.some(v=>!Number.isFinite(v)))return null;return vals;}
-function loadDataset(text,name){tableData=parseCSV(text);datasetName=name;renderTable();renderControls();renderChart();renderStats();$('datasetEmpty').classList.add('hidden');$('datasetInfo').classList.remove('hidden');$('rowMetric').textContent=tableData.body.length.toLocaleString();$('colMetric').textContent=tableData.headers.length.toLocaleString();$('fileName').textContent=name;$('fileMeta').textContent=tableData.body.length+' rows · '+tableData.headers.length+' columns';}
+function loadDataset(text,name){tableData=parseCSV(text);datasetName=name;lastCsvText=text;serverDatasetId=null;renderTable();renderControls();renderChart();renderStats();$('datasetEmpty').classList.add('hidden');$('datasetInfo').classList.remove('hidden');$('rowMetric').textContent=tableData.body.length.toLocaleString();$('colMetric').textContent=tableData.headers.length.toLocaleString();$('fileName').textContent=name;$('fileMeta').textContent=tableData.body.length+' rows · '+tableData.headers.length+' columns';if(apiReady)uploadDatasetToApi(text);updateRunButton();}
 function renderTable(){const t=$('dataTable');t.innerHTML='';const h=document.createElement('tr');tableData.headers.forEach(v=>{const th=document.createElement('th');th.textContent=v;h.appendChild(th)});t.appendChild(h);tableData.body.slice(0,100).forEach(row=>{const tr=document.createElement('tr');row.forEach(v=>{const td=document.createElement('td');td.textContent=v;tr.appendChild(td)});t.appendChild(tr)});}
 function renderControls(){const sel=$('chartColumn');sel.innerHTML='';const opts=tableData.headers.filter(h=>numericCol(h));opts.forEach(h=>{const op=document.createElement('option');op.value=h;op.textContent=h;sel.appendChild(op)});sel.disabled=!opts.length;if(opts.length){$('chartEmpty').classList.add('hidden');$('legendText').textContent=opts[0];}else{$('chartEmpty').textContent='No numeric columns found in this dataset.';$('chartEmpty').classList.remove('hidden');$('legendText').textContent='No numeric columns';}}
 function renderChart(){const canvas=$('chart'),ctx=canvas.getContext('2d'),vals=numericCol($('chartColumn').value);ctx.clearRect(0,0,canvas.width,canvas.height);if(!vals||!vals.length){$('chartEmpty').classList.remove('hidden');return;}const pad={l:42,r:14,t:15,b:28},w=canvas.width-pad.l-pad.r,h=canvas.height-pad.t-pad.b,min=vals.reduce((a,b)=>b<a?b:a,Infinity),max=vals.reduce((a,b)=>b>a?b:a,-Infinity),range=max-min||1;ctx.font='11px DM Sans';ctx.strokeStyle='#26374a';ctx.fillStyle='#8295ac';ctx.lineWidth=1;for(let k=0;k<5;k++){const y=pad.t+h*k/4;ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(pad.l+w,y);ctx.stroke();ctx.fillText((max-range*k/4).toFixed(1),4,y+4);}const points=vals.map((v,i)=>({x:pad.l+(vals.length===1?w/2:i*w/(vals.length-1)),y:pad.t+h-(v-min)/range*h}));ctx.beginPath();points.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.strokeStyle='#56cfe5';ctx.lineWidth=2;ctx.stroke();ctx.lineTo(points.at(-1).x,pad.t+h);ctx.lineTo(points[0].x,pad.t+h);ctx.closePath();const grad=ctx.createLinearGradient(0,pad.t,0,pad.t+h);grad.addColorStop(0,'#56cfe533');grad.addColorStop(1,'#56cfe500');ctx.fillStyle=grad;ctx.fill();points.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,3,0,Math.PI*2);ctx.fillStyle='#70e0f0';ctx.fill()});$('chartEmpty').classList.add('hidden');$('legendText').textContent=$('chartColumn').value;}
@@ -55,3 +63,21 @@ $('sampleBtn').addEventListener('click',()=>loadDataset(sample,'climate_sample.c
 $('csvFile').addEventListener('change',async e=>{const file=e.target.files[0];if(!file)return;if(file.size>2_000_000){alert('CSV exceeds the 2 MB preview limit.');e.target.value='';return;}try{loadDataset(await file.text(),file.name);}catch(err){alert('Could not load CSV: '+err.message);}e.target.value='';});
 $('chartColumn').addEventListener('change',renderChart);
 $('clearBtn').addEventListener('click',()=>{tableData=null;$('datasetInfo').classList.add('hidden');$('datasetEmpty').classList.remove('hidden');$('rowMetric').textContent='—';$('colMetric').textContent='—';$('chartColumn').innerHTML='<option>Numeric column</option>';$('chartColumn').disabled=true;$('chartEmpty').textContent='Load a dataset to visualize a numeric column.';$('chartEmpty').classList.remove('hidden');$('chart').getContext('2d').clearRect(0,0,600,250);$('stats').innerHTML='<p class="muted">Statistics appear after loading a numeric dataset.</p>';});
+
+$('connectApi').addEventListener('click',async()=>{
+  apiBase=$('apiBase').value.trim().replace(/\\/$/,'');
+  if(!apiBase){setApiStatus('Enter a valid API address.');return;}
+  setApiStatus('Connecting…');
+  try{const response=await fetch(apiBase+'/health');if(!response.ok)throw new Error('Health check returned '+response.status);const health=await response.json();apiReady=true;setApiStatus('Connected · '+health.service+' v'+health.version,true);if(lastCsvText)await uploadDatasetToApi(lastCsvText);else updateRunButton();}
+  catch(error){apiReady=false;serverDatasetId=null;setApiStatus('Connection failed: '+error.message);updateRunButton();}
+});
+$('runExperiment').addEventListener('click',async()=>{
+  if(!apiReady||!serverDatasetId)return;
+  const name=$('experimentName').value.trim(),hypothesis=$('hypothesis').value.trim();
+  if(!name||!hypothesis){$('experimentStatus').textContent='Enter an experiment name and research question first.';return;}
+  $('runExperiment').disabled=true;$('downloadReport').disabled=true;$('experimentStatus').textContent='Creating and running experiment…';reportMarkdown=null;
+  try{const create=await fetch(apiBase+'/experiments',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,hypothesis,dataset_id:serverDatasetId,method:'descriptive-statistics'})});if(!create.ok)throw new Error('Create experiment failed: '+(await create.text()).slice(0,160));const experiment=await create.json();const run=await fetch(apiBase+'/experiments/'+experiment.id+'/run',{method:'POST'});if(!run.ok)throw new Error('Run failed: '+(await run.text()).slice(0,160));const report=await fetch(apiBase+'/experiments/'+experiment.id+'/report');if(!report.ok)throw new Error('Report failed: '+(await report.text()).slice(0,160));const reportData=await report.json();reportMarkdown=reportData.report_markdown;$('reportPreview').textContent=reportMarkdown;$('reportPreview').classList.remove('hidden');$('downloadReport').disabled=false;$('experimentStatus').textContent='Completed · experiment '+experiment.id+' · report ready';}
+  catch(error){$('experimentStatus').textContent='Experiment error: '+error.message;}
+  finally{updateRunButton();}
+});
+$('downloadReport').addEventListener('click',()=>{if(!reportMarkdown)return;const blob=new Blob([reportMarkdown],{type:'text/markdown;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='nil-research-report.md';a.click();URL.revokeObjectURL(url);});
