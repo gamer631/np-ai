@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any, Iterator
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 MAX_UPLOAD_BYTES = int(os.getenv("NIL_MAX_UPLOAD_BYTES", "2000000"))
@@ -63,10 +64,10 @@ def init_db() -> None:
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         )""")
         db.execute("""CREATE TABLE IF NOT EXISTS experiment_results (
-            experiment_id TEXT PRIMARY PRIMARY KEY REFERENCES experiments(id) ON DELETE CASCADE,
+            experiment_id TEXT PRIMARY KEY REFERENCES experiments(id) ON DELETE CASCADE,
             result_json TEXT NOT NULL,
             completed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-        )""".replace("PRIMARY PRIMARY", "PRIMARY"))
+        )""")
 
 @app.on_event("startup")
 def startup() -> None:
@@ -77,7 +78,7 @@ def startup() -> None:
 async def limit_request_size(request: Request, call_next):
     length = request.headers.get("content-length")
     if length and length.isdigit() and int(length) > MAX_UPLOAD_BYTES:
-        raise HTTPException(status_code=413, detail="Request exceeds size limit")
+        return JSONResponse(status_code=413, content={"detail": "Request exceeds size limit"})
     return await call_next(request)
 
 
@@ -99,6 +100,8 @@ def parse_csv_strict(raw: bytes) -> tuple[list[str], list[list[str]]]:
         raise ValueError(f"Malformed CSV: {exc}") from exc
     if not rows:
         raise ValueError("CSV is empty")
+    if len(rows) > MAX_ROWS + 1:
+        raise ValueError(f"CSV exceeds {MAX_ROWS} rows")
     headers = [cell.strip() for cell in rows[0]]
     if any(not header for header in headers):
         raise ValueError("Header cells must be non-empty")
@@ -182,8 +185,13 @@ def analyze_dataset(dataset_id: str) -> dict[str, Any]:
 def create_experiment(payload: ExperimentInput) -> dict[str, Any]:
     if dataset_record(payload.dataset_id) is None:
         raise HTTPException(status_code=404, detail="Dataset not found")
-    record = {"id": str(uuid.uuid4()), "name": payload.name.strip(), "hypothesis": payload.hypothesis.strip(),
-               "dataset_id": payload.dataset_id, "method": payload.method.strip(), "status": "queued"}
+    name = payload.name.strip()
+    hypothesis = payload.hypothesis.strip()
+    method = payload.method.strip()
+    if not name or not hypothesis or not method:
+        raise HTTPException(status_code=422, detail="Name, hypothesis, and method must not be blank")
+    record = {"id": str(uuid.uuid4()), "name": name, "hypothesis": hypothesis,
+               "dataset_id": payload.dataset_id, "method": method, "status": "queued"}
     with connect_db() as db:
         db.execute("INSERT INTO experiments(id,name,hypothesis,dataset_id,method,status) VALUES(?,?,?,?,?,?)",
                    (record["id"], record["name"], record["hypothesis"], record["dataset_id"], record["method"], record["status"]))
@@ -218,6 +226,53 @@ def run_experiment(experiment_id: str) -> dict[str, Any]:
         db.execute("UPDATE experiments SET status='completed' WHERE id=?", (experiment_id,))
     return {"experiment_id": experiment_id, "status": "completed", "result": result}
 
+
+@app.get("/experiments/{experiment_id}/report", response_class=None)
+def get_experiment_report(experiment_id: str) -> dict[str, Any]:
+    with connect_db() as db:
+        experiment = db.execute("SELECT id,name,hypothesis,dataset_id,method,status,created_at FROM experiments WHERE id=?", (experiment_id,)).fetchone()
+        result_row = db.execute("SELECT result_json,completed_at FROM experiment_results WHERE experiment_id=?", (experiment_id,)).fetchone()
+    if experiment is None:
+        raise HTTPException(status_code=404, detail="Experiment not found")
+    if result_row is None:
+        raise HTTPException(status_code=409, detail="Experiment has not completed")
+    result = json.loads(result_row["result_json"])
+    stats = result.get("numeric_columns", {})
+    lines = [
+        "# NIL Research Report",
+        "",
+        f"**Experiment:** {experiment['name']}",
+        "",
+        "## Hypothesis",
+        "",
+        experiment["hypothesis"],
+        "",
+        "## Reproducibility",
+        "",
+        f"- Experiment ID: {experiment['id']}",
+        f"- Dataset ID: {experiment['dataset_id']}",
+        f"- Dataset SHA-256: {result.get('dataset_sha256', 'unavailable')}",
+        f"- Method: {experiment['method']}",
+        f"- Created: {experiment['created_at']}",
+        f"- Completed: {result_row['completed_at']}",
+        "",
+        "## Descriptive results",
+        "",
+    ]
+    if stats:
+        lines.extend(["| Column | Count | Mean | Min | Max |", "|---|---:|---:|---:|---:|"])
+        for column, values in stats.items():
+            lines.append(f"| {column} | {values['count']} | {values['mean']:.6g} | {values['min']:.6g} | {values['max']:.6g} |")
+    else:
+        lines.append("No numeric columns were available for analysis.")
+    lines.extend([
+        "",
+        "## Interpretation and limitations",
+        "",
+        "These results are descriptive only. They do not establish causation, validate the hypothesis, or replace domain-specific review. Numeric columns with missing, non-numeric, or non-finite values are excluded from the summary.",
+        "",
+    ])
+    return {"experiment_id": experiment_id, "report_markdown": "\\n".join(lines)}
 
 @app.get("/experiments/{experiment_id}/result")
 def get_experiment_result(experiment_id: str) -> dict[str, Any]:
