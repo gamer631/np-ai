@@ -35,10 +35,14 @@ def test_parser_rejects_ragged_rows_and_duplicate_headers():
         parse_csv_strict(b"a,a\n1,2\n")
 
 
-def test_upload_and_stats():
-    upload = client.post("/datasets", content=b"x,y,label\n1,10,a\n3,20,b\n")
+def test_upload_returns_sha256_and_statistics():
+    raw = b"x,y,label\n1,10,a\n3,20,b\n"
+    upload = client.post("/datasets", content=raw)
     assert upload.status_code == 200
     dataset_id = upload.json()["id"]
+    assert len(upload.json()["sha256"]) == 64
+    dataset = client.get(f"/datasets/{dataset_id}")
+    assert dataset.json()["sha256"] == upload.json()["sha256"]
     analysis = client.post(f"/datasets/{dataset_id}/analyze").json()
     assert analysis["numeric_columns"]["x"]["mean"] == 2
     assert analysis["numeric_columns"]["y"]["max"] == 20
@@ -64,9 +68,33 @@ def test_experiment_metadata_creation_and_retrieval():
     assert fetched.json()["name"] == "Test run"
 
 
-def test_dataset_persists_after_request():
+def test_experiment_run_and_result_are_persisted():
+    dataset = client.post("/datasets", content=b"value\n7\n9\n").json()
+    experiment = client.post("/experiments", json={
+        "name": "Mean check", "hypothesis": "Values have a mean of eight",
+        "dataset_id": dataset["id"]
+    }).json()
+    run = client.post(f"/experiments/{experiment['id']}/run")
+    assert run.status_code == 200
+    assert run.json()["status"] == "completed"
+    assert run.json()["result"]["numeric_columns"]["value"]["mean"] == 8
+    assert client.get(f"/experiments/{experiment['id']}").json()["status"] == "completed"
+    saved = client.get(f"/experiments/{experiment['id']}/result")
+    assert saved.status_code == 200
+    assert saved.json()["result"]["dataset_sha256"] == dataset["sha256"]
+
+
+def test_run_rejects_unknown_method():
+    dataset = client.post("/datasets", content=b"x\n2\n").json()
+    experiment = client.post("/experiments", json={
+        "name": "Unknown method", "hypothesis": "test", "dataset_id": dataset["id"],
+        "method": "execute-python"
+    }).json()
+    assert client.post(f"/experiments/{experiment['id']}/run").status_code == 400
+
+
+def test_dataset_persists_in_sqlite():
     upload = client.post("/datasets", content=b"value\n7\n")
     dataset_id = upload.json()["id"]
     assert client.get(f"/datasets/{dataset_id}").status_code == 200
-    # New HTTP request retrieves the dataset from SQLite, not an in-memory cache.
     assert client.post(f"/datasets/{dataset_id}/analyze").json()["numeric_columns"]["value"]["mean"] == 7
