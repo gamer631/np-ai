@@ -65,7 +65,7 @@ $('chartColumn').addEventListener('change',renderChart);
 $('clearBtn').addEventListener('click',()=>{tableData=null;lastCsvText=null;serverDatasetId=null;reportMarkdown=null;$('reportPreview').classList.add('hidden');$('downloadReport').disabled=true;$('experimentStatus').textContent='Load a dataset and connect to the API to enable experiment runs.';$('datasetInfo').classList.add('hidden');$('datasetEmpty').classList.remove('hidden');$('rowMetric').textContent='—';$('colMetric').textContent='—';$('chartColumn').innerHTML='<option>Numeric column</option>';$('chartColumn').disabled=true;$('chartEmpty').textContent='Load a dataset to visualize a numeric column.';$('chartEmpty').classList.remove('hidden');$('chart').getContext('2d').clearRect(0,0,600,250);$('stats').innerHTML='<p class="muted">Statistics appear after loading a numeric dataset.</p>';updateRunButton();});
 
 $('connectApi').addEventListener('click',async()=>{
-  apiBase=$('apiBase').value.trim().replace(/\\/$/,'');
+  apiBase=$('apiBase').value.trim().replace(/\\/+$/,'');
   if(!apiBase){setApiStatus('Enter a valid API address.');return;}
   setApiStatus('Connecting…');
   try{const response=await fetch(apiBase+'/health');if(!response.ok)throw new Error('Health check returned '+response.status);const health=await response.json();apiReady=true;setApiStatus('Connected · '+health.service+' v'+health.version,true);if(lastCsvText)await uploadDatasetToApi(lastCsvText);else updateRunButton();}
