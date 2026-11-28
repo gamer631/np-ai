@@ -5,6 +5,7 @@ The service stores records in SQLite and never executes user-provided Python.
 from __future__ import annotations
 
 import csv
+from contextlib import contextmanager
 import io
 import json
 import math
@@ -12,7 +13,7 @@ import os
 import sqlite3
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel, Field
@@ -32,12 +33,17 @@ class ExperimentInput(BaseModel):
     method: str = Field(default="descriptive-statistics", max_length=80)
 
 
-def connect_db() -> sqlite3.Connection:
+@contextmanager
+def connect_db() -> Iterator[sqlite3.Connection]:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     connection = sqlite3.connect(DB_PATH, timeout=10)
     connection.row_factory = sqlite3.Row
     connection.execute("PRAGMA foreign_keys = ON")
-    return connection
+    try:
+        yield connection
+        connection.commit()
+    finally:
+        connection.close()
 
 
 def init_db() -> None:
