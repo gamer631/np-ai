@@ -227,7 +227,7 @@ def run_experiment(experiment_id: str) -> dict[str, Any]:
     return {"experiment_id": experiment_id, "status": "completed", "result": result}
 
 
-@app.get("/experiments/{experiment_id}/report", response_class=None)
+@app.get("/experiments/{experiment_id}/report")
 def get_experiment_report(experiment_id: str) -> dict[str, Any]:
     with connect_db() as db:
         experiment = db.execute("SELECT id,name,hypothesis,dataset_id,method,status,created_at FROM experiments WHERE id=?", (experiment_id,)).fetchone()
