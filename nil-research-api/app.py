@@ -15,6 +15,7 @@ from typing import Any, Iterator
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 MAX_UPLOAD_BYTES = int(os.getenv("NIL_MAX_UPLOAD_BYTES", "2000000"))
@@ -22,6 +23,12 @@ MAX_ROWS = int(os.getenv("NIL_MAX_ROWS", "50000"))
 MAX_COLUMNS = int(os.getenv("NIL_MAX_COLUMNS", "200"))
 DB_PATH = Path(os.getenv("NIL_DATABASE_PATH", str(Path(__file__).with_name("nil_research.sqlite3"))))
 app = FastAPI(title="NIL Research API", version="0.3.0")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://127.0.0.1:5500", "http://localhost:5500"],
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type"],
+)
 
 
 class ExperimentInput(BaseModel):
