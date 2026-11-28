@@ -171,6 +171,21 @@ async def upload_dataset(request: Request) -> dict[str, Any]:
     return {"id": dataset_id, "columns": columns, "row_count": len(rows), "sha256": digest}
 
 
+@app.get("/datasets")
+def list_datasets(limit: int = 20) -> dict[str, Any]:
+    limit = max(1, min(limit, 100))
+    with connect_db() as db:
+        rows = db.execute(
+            "SELECT id,columns_json,row_count,sha256,created_at FROM datasets ORDER BY created_at DESC,id DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+    return {"datasets": [
+        {"id": row["id"], "columns": json.loads(row["columns_json"]), "row_count": row["row_count"],
+         "sha256": row["sha256"], "created_at": row["created_at"]}
+        for row in rows
+    ]}
+
+
 @app.get("/datasets/{dataset_id}")
 def get_dataset(dataset_id: str) -> dict[str, Any]:
     dataset = dataset_record(dataset_id)
@@ -203,6 +218,21 @@ def create_experiment(payload: ExperimentInput) -> dict[str, Any]:
         db.execute("INSERT INTO experiments(id,name,hypothesis,dataset_id,method,status) VALUES(?,?,?,?,?,?)",
                    (record["id"], record["name"], record["hypothesis"], record["dataset_id"], record["method"], record["status"]))
     return record
+
+
+@app.get("/experiments")
+def list_experiments(limit: int = 20) -> dict[str, Any]:
+    limit = max(1, min(limit, 100))
+    with connect_db() as db:
+        rows = db.execute(
+            """SELECT e.id,e.name,e.hypothesis,e.dataset_id,e.method,e.status,e.created_at,
+                      d.row_count,d.sha256,r.completed_at
+               FROM experiments e JOIN datasets d ON d.id=e.dataset_id
+               LEFT JOIN experiment_results r ON r.experiment_id=e.id
+               ORDER BY e.created_at DESC,e.id DESC LIMIT ?""",
+            (limit,),
+        ).fetchall()
+    return {"experiments": [dict(row) for row in rows]}
 
 
 @app.get("/experiments/{experiment_id}")
