@@ -24,6 +24,7 @@ API docs: http://127.0.0.1:8000/docs
 - `GET /experiments/{id}` — experiment status
 - `POST /experiments/{id}/run` — run the allowlisted descriptive-statistics method and persist results
 - `GET /experiments/{id}/result` — retrieve stored result and timestamp
+- `GET /experiments/{id}/report` — generate Markdown report for completed experiments
 
 ## Data and safety
 
