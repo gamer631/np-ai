@@ -101,7 +101,7 @@ def test_dataset_persists_in_sqlite():
 
 
 def test_report_requires_completed_run_and_contains_provenance():
-    dataset = client.post("/datasets", content=b"measure\\n2\\n4\\n").json()
+    dataset = client.post("/datasets", content=b"measure\n2\n4\n").json()
     experiment = client.post("/experiments", json={
         "name": "Report test", "hypothesis": "Mean should be three",
         "dataset_id": dataset["id"]
@@ -118,7 +118,7 @@ def test_report_requires_completed_run_and_contains_provenance():
 
 
 def test_experiment_rejects_blank_trimmed_fields():
-    dataset = client.post("/datasets", content=b"x\\n1\\n").json()
+    dataset = client.post("/datasets", content=b"x\n1\n").json()
     response = client.post("/experiments", json={
         "name": "   ", "hypothesis": "  ", "dataset_id": dataset["id"]
     })
