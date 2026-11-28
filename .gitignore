@@ -9,3 +9,8 @@ dist
 *.log
 .DS_Store
 .vercel
+# NIL research API local state
+nil-research-api/*.sqlite3
+nil-research-api/*.db
+nil-research-api/.venv
+nil-research-api/__pycache__

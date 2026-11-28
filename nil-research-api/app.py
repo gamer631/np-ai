@@ -1,0 +1,321 @@
+"""NIL Research API: local dataset analysis and safe experiment execution."""
+from __future__ import annotations
+
+import csv
+import hashlib
+import io
+import json
+import math
+import os
+import sqlite3
+import uuid
+from contextlib import contextmanager
+from pathlib import Path
+from typing import Any, Iterator
+
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
+
+MAX_UPLOAD_BYTES = int(os.getenv("NIL_MAX_UPLOAD_BYTES", "2000000"))
+MAX_ROWS = int(os.getenv("NIL_MAX_ROWS", "50000"))
+MAX_COLUMNS = int(os.getenv("NIL_MAX_COLUMNS", "200"))
+DB_PATH = Path(os.getenv("NIL_DATABASE_PATH", str(Path(__file__).with_name("nil_research.sqlite3"))))
+app = FastAPI(title="NIL Research API", version="0.3.0")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://127.0.0.1:5500", "http://localhost:5500"],
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type"],
+)
+
+
+class ExperimentInput(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    hypothesis: str = Field(min_length=1, max_length=2000)
+    dataset_id: str
+    method: str = Field(default="descriptive-statistics", max_length=80)
+
+
+@contextmanager
+def connect_db() -> Iterator[sqlite3.Connection]:
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    connection = sqlite3.connect(DB_PATH, timeout=10)
+    connection.row_factory = sqlite3.Row
+    connection.execute("PRAGMA foreign_keys = ON")
+    try:
+        yield connection
+        connection.commit()
+    finally:
+        connection.close()
+
+
+def init_db() -> None:
+    with connect_db() as db:
+        db.execute("""CREATE TABLE IF NOT EXISTS datasets (
+            id TEXT PRIMARY KEY,
+            columns_json TEXT NOT NULL,
+            rows_json TEXT NOT NULL,
+            row_count INTEGER NOT NULL,
+            sha256 TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )""")
+        db.execute("""CREATE TABLE IF NOT EXISTS experiments (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            hypothesis TEXT NOT NULL,
+            dataset_id TEXT NOT NULL REFERENCES datasets(id) ON DELETE CASCADE,
+            method TEXT NOT NULL,
+            status TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )""")
+        db.execute("""CREATE TABLE IF NOT EXISTS experiment_results (
+            experiment_id TEXT PRIMARY KEY REFERENCES experiments(id) ON DELETE CASCADE,
+            result_json TEXT NOT NULL,
+            completed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )""")
+
+@app.on_event("startup")
+def startup() -> None:
+    init_db()
+
+
+@app.middleware("http")
+async def limit_request_size(request: Request, call_next):
+    length = request.headers.get("content-length")
+    if length and length.isdigit() and int(length) > MAX_UPLOAD_BYTES:
+        return JSONResponse(status_code=413, content={"detail": "Request exceeds size limit"})
+    return await call_next(request)
+
+
+@app.get("/health")
+def health() -> dict[str, str]:
+    return {"status": "ok", "service": "nil-research-api", "version": "0.3.0"}
+
+
+def parse_csv_strict(raw: bytes) -> tuple[list[str], list[list[str]]]:
+    if len(raw) > MAX_UPLOAD_BYTES:
+        raise ValueError("CSV exceeds upload size limit")
+    try:
+        decoded = raw.decode("utf-8-sig")
+    except UnicodeDecodeError as exc:
+        raise ValueError("CSV must be UTF-8") from exc
+    try:
+        rows = list(csv.reader(io.StringIO(decoded, newline=""), strict=True))
+    except csv.Error as exc:
+        raise ValueError(f"Malformed CSV: {exc}") from exc
+    if not rows:
+        raise ValueError("CSV is empty")
+    if len(rows) > MAX_ROWS + 1:
+        raise ValueError(f"CSV exceeds {MAX_ROWS} rows")
+    headers = [cell.strip() for cell in rows[0]]
+    if any(not header for header in headers):
+        raise ValueError("Header cells must be non-empty")
+    if len(headers) > MAX_COLUMNS:
+        raise ValueError(f"CSV exceeds {MAX_COLUMNS} columns")
+    if len(set(headers)) != len(headers):
+        raise ValueError("Column names must be unique")
+    data = rows[1:]
+    if len(data) > MAX_ROWS:
+        raise ValueError(f"CSV exceeds {MAX_ROWS} rows")
+    if any(len(row) != len(headers) for row in data):
+        raise ValueError("Every data row must match the header column count")
+    return headers, data
+
+
+def dataset_record(dataset_id: str) -> dict[str, Any] | None:
+    with connect_db() as db:
+        row = db.execute("SELECT id,columns_json,rows_json,row_count,sha256 FROM datasets WHERE id=?", (dataset_id,)).fetchone()
+    if row is None:
+        return None
+    return {"id": row["id"], "columns": json.loads(row["columns_json"]),
+            "rows": json.loads(row["rows_json"]), "sha256": row["sha256"]}
+
+
+def calculate_statistics(dataset: dict[str, Any]) -> dict[str, Any]:
+    stats: dict[str, Any] = {}
+    for index, name in enumerate(dataset["columns"]):
+        values: list[float] = []
+        for row in dataset["rows"]:
+            cell = row[index].strip()
+            if not cell:
+                continue
+            try:
+                value = float(cell)
+            except ValueError:
+                values = []
+                break
+            if not math.isfinite(value):
+                values = []
+                break
+            values.append(value)
+        if values:
+            stats[name] = {"count": len(values), "mean": math.fsum(values) / len(values),
+                          "min": min(values), "max": max(values)}
+    return stats
+
+
+@app.post("/datasets")
+async def upload_dataset(request: Request) -> dict[str, Any]:
+    raw = await request.body()
+    try:
+        columns, rows = parse_csv_strict(raw)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    dataset_id = str(uuid.uuid4())
+    digest = hashlib.sha256(raw).hexdigest()
+    with connect_db() as db:
+        db.execute("INSERT INTO datasets(id,columns_json,rows_json,row_count,sha256) VALUES(?,?,?,?,?)",
+                   (dataset_id, json.dumps(columns), json.dumps(rows), len(rows), digest))
+    return {"id": dataset_id, "columns": columns, "row_count": len(rows), "sha256": digest}
+
+
+@app.get("/datasets")
+def list_datasets(limit: int = 20) -> dict[str, Any]:
+    limit = max(1, min(limit, 100))
+    with connect_db() as db:
+        rows = db.execute(
+            "SELECT id,columns_json,row_count,sha256,created_at FROM datasets ORDER BY created_at DESC,id DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+    return {"datasets": [
+        {"id": row["id"], "columns": json.loads(row["columns_json"]), "row_count": row["row_count"],
+         "sha256": row["sha256"], "created_at": row["created_at"]}
+        for row in rows
+    ]}
+
+
+@app.get("/datasets/{dataset_id}")
+def get_dataset(dataset_id: str) -> dict[str, Any]:
+    dataset = dataset_record(dataset_id)
+    if dataset is None:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+    return {"id": dataset["id"], "columns": dataset["columns"], "row_count": len(dataset["rows"]),
+            "preview": dataset["rows"][:20], "sha256": dataset["sha256"]}
+
+
+@app.post("/datasets/{dataset_id}/analyze")
+def analyze_dataset(dataset_id: str) -> dict[str, Any]:
+    dataset = dataset_record(dataset_id)
+    if dataset is None:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+    return {"dataset_id": dataset_id, "numeric_columns": calculate_statistics(dataset)}
+
+
+@app.post("/experiments", status_code=201)
+def create_experiment(payload: ExperimentInput) -> dict[str, Any]:
+    if dataset_record(payload.dataset_id) is None:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+    name = payload.name.strip()
+    hypothesis = payload.hypothesis.strip()
+    method = payload.method.strip()
+    if not name or not hypothesis or not method:
+        raise HTTPException(status_code=422, detail="Name, hypothesis, and method must not be blank")
+    record = {"id": str(uuid.uuid4()), "name": name, "hypothesis": hypothesis,
+               "dataset_id": payload.dataset_id, "method": method, "status": "queued"}
+    with connect_db() as db:
+        db.execute("INSERT INTO experiments(id,name,hypothesis,dataset_id,method,status) VALUES(?,?,?,?,?,?)",
+                   (record["id"], record["name"], record["hypothesis"], record["dataset_id"], record["method"], record["status"]))
+    return record
+
+
+@app.get("/experiments")
+def list_experiments(limit: int = 20) -> dict[str, Any]:
+    limit = max(1, min(limit, 100))
+    with connect_db() as db:
+        rows = db.execute(
+            """SELECT e.id,e.name,e.hypothesis,e.dataset_id,e.method,e.status,e.created_at,
+                      d.row_count,d.sha256,r.completed_at
+               FROM experiments e JOIN datasets d ON d.id=e.dataset_id
+               LEFT JOIN experiment_results r ON r.experiment_id=e.id
+               ORDER BY e.created_at DESC,e.id DESC LIMIT ?""",
+            (limit,),
+        ).fetchall()
+    return {"experiments": [dict(row) for row in rows]}
+
+
+@app.get("/experiments/{experiment_id}")
+def get_experiment(experiment_id: str) -> dict[str, Any]:
+    with connect_db() as db:
+        row = db.execute("SELECT id,name,hypothesis,dataset_id,method,status FROM experiments WHERE id=?", (experiment_id,)).fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Experiment not found")
+    return dict(row)
+
+
+@app.post("/experiments/{experiment_id}/run")
+def run_experiment(experiment_id: str) -> dict[str, Any]:
+    with connect_db() as db:
+        experiment = db.execute("SELECT * FROM experiments WHERE id=?", (experiment_id,)).fetchone()
+    if experiment is None:
+        raise HTTPException(status_code=404, detail="Experiment not found")
+    if experiment["method"] != "descriptive-statistics":
+        raise HTTPException(status_code=400, detail="Unsupported safe method")
+    dataset = dataset_record(experiment["dataset_id"])
+    if dataset is None:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+    result = {"method": experiment["method"], "dataset_id": dataset["id"],
+              "dataset_sha256": dataset["sha256"], "numeric_columns": calculate_statistics(dataset)}
+    with connect_db() as db:
+        db.execute("INSERT OR REPLACE INTO experiment_results(experiment_id,result_json) VALUES(?,?)",
+                  (experiment_id, json.dumps(result, allow_nan=False)))
+        db.execute("UPDATE experiments SET status='completed' WHERE id=?", (experiment_id,))
+    return {"experiment_id": experiment_id, "status": "completed", "result": result}
+
+
+@app.get("/experiments/{experiment_id}/report")
+def get_experiment_report(experiment_id: str) -> dict[str, Any]:
+    with connect_db() as db:
+        experiment = db.execute("SELECT id,name,hypothesis,dataset_id,method,status,created_at FROM experiments WHERE id=?", (experiment_id,)).fetchone()
+        result_row = db.execute("SELECT result_json,completed_at FROM experiment_results WHERE experiment_id=?", (experiment_id,)).fetchone()
+    if experiment is None:
+        raise HTTPException(status_code=404, detail="Experiment not found")
+    if result_row is None:
+        raise HTTPException(status_code=409, detail="Experiment has not completed")
+    result = json.loads(result_row["result_json"])
+    stats = result.get("numeric_columns", {})
+    lines = [
+        "# NIL Research Report",
+        "",
+        f"**Experiment:** {experiment['name']}",
+        "",
+        "## Hypothesis",
+        "",
+        experiment["hypothesis"],
+        "",
+        "## Reproducibility",
+        "",
+        f"- Experiment ID: {experiment['id']}",
+        f"- Dataset ID: {experiment['dataset_id']}",
+        f"- Dataset SHA-256: {result.get('dataset_sha256', 'unavailable')}",
+        f"- Method: {experiment['method']}",
+        f"- Created: {experiment['created_at']}",
+        f"- Completed: {result_row['completed_at']}",
+        "",
+        "## Descriptive results",
+        "",
+    ]
+    if stats:
+        lines.extend(["| Column | Count | Mean | Min | Max |", "|---|---:|---:|---:|---:|"])
+        for column, values in stats.items():
+            safe_column = str(column).replace("|", "\\|").replace("\n", " ")
+            lines.append(f"| {safe_column} | {values['count']} | {values['mean']:.6g} | {values['min']:.6g} | {values['max']:.6g} |")
+    else:
+        lines.append("No numeric columns were available for analysis.")
+    lines.extend([
+        "",
+        "## Interpretation and limitations",
+        "",
+        "These results are descriptive only. They do not establish causation, validate the hypothesis, or replace domain-specific review. Numeric columns with missing, non-numeric, or non-finite values are excluded from the summary.",
+        "",
+    ])
+    return {"experiment_id": experiment_id, "report_markdown": "\\n".join(lines)}
+
+@app.get("/experiments/{experiment_id}/result")
+def get_experiment_result(experiment_id: str) -> dict[str, Any]:
+    with connect_db() as db:
+        row = db.execute("SELECT result_json,completed_at FROM experiment_results WHERE experiment_id=?", (experiment_id,)).fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Experiment result not found")
+    return {"experiment_id": experiment_id, "completed_at": row["completed_at"], "result": json.loads(row["result_json"])}

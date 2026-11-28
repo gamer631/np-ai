@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="NIL Research Workbench — explore datasets, inspect trends, and organize experiments.">
+  <title>NIL Research Workbench</title>
+  <link rel="stylesheet" href="workbench.css">
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <a class="brand" href="#" aria-label="Nepal Innovation Labs home"><span class="brand-mark">N</span><span><strong>NIL</strong><small>NEPAL INNOVATION LABS</small></span></a>
+      <div class="nav-label">WORKSPACE</div>
+      <nav>
+        <a class="nav active" href="#"><span>◫</span> Overview</a>
+        <a class="nav" href="#datasets"><span>▤</span> Datasets <b class="count">01</b></a>
+        <a class="nav" href="#analysis"><span>⌁</span> Analysis</a>
+        <a class="nav" href="#experiments"><span>◉</span> Experiments</a>
+        <a class="nav" href="#reports"><span>▧</span> Reports</a>
+      </nav>
+      <div class="nav-label">LAB TOOLS</div>
+      <nav><a class="nav" href="#math"><span>∑</span> Math engine</a><a class="nav" href="#settings"><span>⚙</span> Settings</a></nav>
+      <div class="side-bottom"><div class="status-dot"></div><span>Local prototype</span><span class="version">v0.1</span></div>
+    </aside>
+    <main>
+      <header class="topbar"><div class="crumb">Research <span>/</span> Workbench</div><div class="top-actions"><span class="live"><i></i> SYSTEM READY</span><div class="avatar">KR</div></div></header>
+      <section class="welcome"><div><p class="eyebrow">NEPAL INNOVATION LABS · NIL</p><h1>Research, without limits.</h1><p class="subtitle">A focused workspace to explore data, test ideas, and turn observations into evidence.</p></div><div class="welcome-art" aria-hidden="true"><div class="orbit orbit1"></div><div class="orbit orbit2"></div><div class="orb"></div><span class="spark s1">✳</span><span class="spark s2">·</span><span class="spark s3">+</span></div></section>
+      <section class="metrics" aria-label="Workspace overview"><article class="metric"><span class="metric-label">DATA ROWS</span><strong id="rowMetric">—</strong><span class="metric-foot">In active dataset</span></article><article class="metric"><span class="metric-label">VARIABLES</span><strong id="colMetric">—</strong><span class="metric-foot">Available columns</span></article><article class="metric"><span class="metric-label">WORKSPACE</span><strong class="metric-state">READY</strong><span class="metric-foot">Import data to begin</span></article><article class="metric accent"><span class="metric-label">ANALYSIS ENGINE</span><strong>Local preview</strong><span class="metric-foot">No data leaves this page</span></article></section>
+      <section class="main-grid" id="datasets">
+        <article class="panel dataset-panel"><div class="panel-head"><div><p class="eyebrow">DATA EXPLORER</p><h2>Dataset</h2></div><label class="upload-btn" for="csvFile">＋ Import CSV</label><input id="csvFile" type="file" accept=".csv,text/csv" hidden></div><div id="datasetEmpty" class="empty"><div class="empty-icon">▤</div><h3>No dataset loaded</h3><p>Import a CSV file or explore the sample dataset to get started.</p><button id="sampleBtn" class="secondary">Load sample dataset</button></div><div id="datasetInfo" class="dataset-info hidden"><div class="dataset-title"><div class="file-icon">CSV</div><div><strong id="fileName">Sample dataset</strong><small id="fileMeta">—</small></div><button id="clearBtn" class="text-button">Clear</button></div><div class="table-wrap"><table id="dataTable"></table></div></div></article>
+        <article class="panel analysis-panel" id="analysis"><div class="panel-head"><div><p class="eyebrow">QUICK ANALYSIS</p><h2>Trend preview</h2></div><select id="chartColumn" aria-label="Select chart column" disabled><option>Numeric column</option></select></div><div class="chart-wrap"><canvas id="chart" width="600" height="250"></canvas><div id="chartEmpty" class="chart-empty">Load a dataset to visualize a numeric column.</div></div><div class="chart-legend"><span class="legend-dot"></span><span id="legendText">Dataset values</span><span class="chart-note">ROW INDEX →</span></div></article>
+      </section>
+      <section class="lower-grid"><article class="panel experiment-panel" id="experiments"><div class="panel-head"><div><p class="eyebrow">LAB ACTIVITY</p><h2>Experiment space</h2></div><span class="tag">API-POWERED</span></div><div class="api-connect"><label for="apiBase">Research API address</label><div class="api-line"><input id="apiBase" type="url" value="http://127.0.0.1:8000" aria-label="Research API address"><button id="connectApi" class="secondary">Connect</button></div><p id="apiStatus" class="muted">Connect to the local NIL Research API to save experiments and generate reports.</p></div><div class="experiment-form"><label for="experimentName">Experiment name</label><input id="experimentName" type="text" maxlength="120" placeholder="e.g. Temperature trend review"><label for="hypothesis">Hypothesis / research question</label><textarea id="hypothesis" rows="3" maxlength="2000" placeholder="Describe what you want to examine."></textarea><button id="runExperiment" class="secondary" disabled>Run descriptive experiment</button><p id="experimentStatus" class="muted">Load a dataset and connect to the API to enable experiment runs.</p><button id="downloadReport" class="secondary" disabled>Export Markdown report</button><pre id="reportPreview" class="report-preview hidden"></pre></div><div class="experiment-history"><div class="history-head"><h3>Saved experiments</h3><button id="refreshHistory" class="text-button">Refresh</button></div><div id="historyList" class="history-list"><p class="muted">Connect to the API to view saved experiments.</p></div></div></article><article class="panel" id="reports"><div class="panel-head"><div><p class="eyebrow">INSIGHT SUMMARY</p><h2>Column statistics</h2></div></div><div id="stats" class="stats"><p class="muted">Statistics appear after loading a numeric dataset.</p></div></article></section>
+      <footer><span>NEPAL INNOVATION LABS</span><span>Designed for curious minds. Built for evidence.</span></footer>
+    </main>
+  </div>
+  <script src="workbench.js"></script>
+</body>
+</html>
