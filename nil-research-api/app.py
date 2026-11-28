@@ -5,6 +5,7 @@ The service stores records in SQLite and never executes user-provided Python.
 from __future__ import annotations
 
 import csv
+import hashlib
 from contextlib import contextmanager
 import io
 import json
@@ -55,7 +56,9 @@ def init_db() -> None:
             row_count INTEGER NOT NULL,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         )""")
-        db.execute("""CREATE TABLE IF NOT EXISTS experiments (
+        db.execute("""CREATE TABLE IF NOT EXISTS dataset_integrity (\n            dataset_id TEXT PRIMARY KEY REFERENCES datasets(id) ON DELETE CASCADE,\n            sha256 TEXT NOT NULL\n        )""
+        )\n        db.execute("""CREATE TABLE IF NOT EXISTS experiment_results (\n            experiment_id TEXT PRIMARY KEY REFERENCES experiments(id) ON DELETE CASCADE,\n            result_json TEXT NOT NULL,\n            completed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP\n        )""
+        )\n        db.execute("""CREATE TABLE IF NOT EXISTS experiments (
             id TEXT PRIMARY KEY,
             name TEXT NOT NULL,
             hypothesis TEXT NOT NULL,
@@ -130,8 +133,8 @@ async def upload_dataset(request: Request) -> dict[str, Any]:
     dataset_id = str(uuid.uuid4())
     with connect_db() as db:
         db.execute("INSERT INTO datasets(id,columns_json,rows_json,row_count) VALUES(?,?,?,?)",
-                   (dataset_id, json.dumps(headers), json.dumps(rows), len(rows)))
-    return {"id": dataset_id, "columns": headers, "row_count": len(rows)}
+                   (dataset_id, json.dumps(headers), json.dumps(rows), len(rows)))\n        db.execute("INSERT INTO dataset_integrity(dataset_id,sha256) VALUES(?,?)", (dataset_id, hashlib.sha256(raw).hexdigest()))
+    return {"id": dataset_id, "columns": headers, "row_count": len(rows), "sha256": hashlib.sha256(raw).hexdigest()}
 
 
 @app.get("/datasets/{dataset_id}")
@@ -139,14 +142,10 @@ def get_dataset(dataset_id: str) -> dict[str, Any]:
     dataset = dataset_record(dataset_id)
     if dataset is None:
         raise HTTPException(status_code=404, detail="Dataset not found")
-    return {"id": dataset["id"], "columns": dataset["columns"], "row_count": len(dataset["rows"]), "preview": dataset["rows"][:20]}
+    with connect_db() as db:\n        integrity = db.execute("SELECT sha256 FROM dataset_integrity WHERE dataset_id=?", (dataset_id,)).fetchone()\n    return {"id": dataset["id"], "columns": dataset["columns"], "row_count": len(dataset["rows"]), "preview": dataset["rows"][:20], "sha256": integrity["sha256"] if integrity else None}
 
 
-@app.post("/datasets/{dataset_id}/analyze")
-def analyze_dataset(dataset_id: str) -> dict[str, Any]:
-    dataset = dataset_record(dataset_id)
-    if dataset is None:
-        raise HTTPException(status_code=404, detail="Dataset not found")
+def calculate_statistics(dataset: dict[str, Any]) -> dict[str, Any]:
     result: dict[str, Any] = {}
     for index, column in enumerate(dataset["columns"]):
         values: list[float] = []
@@ -159,15 +158,22 @@ def analyze_dataset(dataset_id: str) -> dict[str, Any]:
             except ValueError:
                 values = []
                 break
-            if math.isfinite(value):
-                values.append(value)
-            else:
+            if not math.isfinite(value):
                 values = []
                 break
+            values.append(value)
         if values:
             total = math.fsum(values)
             result[column] = {"count": len(values), "mean": total / len(values), "min": min(values), "max": max(values)}
-    return {"dataset_id": dataset_id, "numeric_columns": result}
+    return result
+
+
+@app.post("/datasets/{dataset_id}/analyze")
+def analyze_dataset(dataset_id: str) -> dict[str, Any]:
+    dataset = dataset_record(dataset_id)
+    if dataset is None:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+    return {"dataset_id": dataset_id, "numeric_columns": calculate_statistics(dataset)}
 
 
 @app.post("/experiments", status_code=201)
@@ -190,3 +196,32 @@ def get_experiment(experiment_id: str) -> dict[str, Any]:
     if row is None:
         raise HTTPException(status_code=404, detail="Experiment not found")
     return dict(row)
+@app.post("/experiments/{experiment_id}/run")
+def run_experiment(experiment_id: str) -> dict[str, Any]:
+    with connect_db() as db:
+        experiment = db.execute("SELECT * FROM experiments WHERE id=?", (experiment_id,)).fetchone()
+    if experiment is None:
+        raise HTTPException(status_code=404, detail="Experiment not found")
+    if experiment["method"] != "descriptive-statistics":
+        raise HTTPException(status_code=400, detail="Unsupported safe method")
+    dataset = dataset_record(experiment["dataset_id"])
+    if dataset is None:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+    result = {"method": experiment["method"], "dataset_id": dataset["id"],
+              "numeric_columns": calculate_statistics(dataset)}
+    with connect_db() as db:
+        db.execute("INSERT OR REPLACE INTO experiment_results(experiment_id,result_json) VALUES(?,?)",
+                  (experiment_id, json.dumps(result, allow_nan=False)))
+        db.execute("UPDATE experiments SET status='completed' WHERE id=?", (experiment_id,))
+    return {"experiment_id": experiment_id, "status": "completed", "result": result}
+
+
+@app.get("/experiments/{experiment_id}/result")
+def get_experiment_result(experiment_id: str) -> dict[str, Any]:
+    with connect_db() as db:
+        row = db.execute("SELECT result_json,completed_at FROM experiment_results WHERE experiment_id=?", (experiment_id,)).fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Experiment result not found")
+    return {"experiment_id": experiment_id, "completed_at": row["completed_at"], "result": json.loads(row["result_json"])}
+
+
