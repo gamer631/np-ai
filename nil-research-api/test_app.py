@@ -22,6 +22,12 @@ def test_health():
     assert response.json()["status"] == "ok"
 
 
+def test_local_workbench_origin_has_cors_access():
+    response = client.get("/health", headers={"Origin": "http://127.0.0.1:5500"})
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "http://127.0.0.1:5500"
+
+
 def test_csv_parser_handles_quotes_and_multiline():
     headers, rows = parse_csv_strict(b'name,note\nAda,"line one\nline two"\n')
     assert headers == ["name", "note"]
